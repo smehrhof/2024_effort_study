@@ -22,7 +22,7 @@ source("github/effort-study/code/functions/model_convergence_check_fun.R")
 source("github/effort-study/code/functions/model_comparison_fun.R")
 
 # source dataset
-main_data <- readRDS("data/processed_data/main_study/online_data.RDS")
+main_data <- readRDS("github/effort-study/data/online_data.RDS")
 task_data <- main_data$modelling_data
 
 # load required packages
