@@ -9,7 +9,7 @@
 # (4) Questionnaire measures
 
 # Set working directory
-here::i_am("github/effort-study/code/main_study/data_processing.R")
+here::i_am("github/effort-study/code/main_study/2_descriptives.R")
 setwd(here::here())
 
 # source functions

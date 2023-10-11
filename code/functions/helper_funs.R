@@ -46,3 +46,19 @@ id_shuffle <- function(x){
   new_id
 }
 
+
+## Scale variables to 0-1 ---------------------------------------------------------
+#@ x: Variable vector
+
+rescale <- function(x){
+  (x-min(x)) / (max(x)-min(x))
+}
+
+
+
+
+
+
+
+
+

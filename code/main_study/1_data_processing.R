@@ -3,18 +3,24 @@
 ################################################################################
 
 ### In this script: 
+##> Main data
 # (1) Read-in and combine data
-# (2) Read-in and combine Prolific meta-data
-# (3) Parse data
-# (4) Make modification according to recruitment notes
-# (5) Questionnaire data processing 
-# (6) Pre-registered data exclusion
-# (7) Data monitoring
-# (8) Game based exclusion
-# (9) Save cleaned data
+# (2) Parse data
+# (3) Make modification according to recruitment notes
+# (4) Questionnaire data processing 
+# (5) Pre-registered data exclusion
+# (6) Data monitoring
+# (7) Game based exclusion
+# (8) Save cleaned data
+##> Circadian follow-up data
+# (9) Read-in and parse data
+# (11) Questionnaire data processing 
+# (12) Pre-registered data exclusion
+# (13)
+# (14) Save cleaned data
 
 # Set working directory
-here::i_am("github/effort-study/code/main_study/data_processing.R")
+here::i_am("github/effort-study/code/main_study/1_data_processing.R")
 setwd(here::here())
 
 # source functions
@@ -24,8 +30,10 @@ source("github/effort-study/code/functions/parsing_fun.R")
 # load required packages
 librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, writexl)
 
-
+##> Main data -----------------------------------------------
 ### (1) Read-in and combine data -----------------------------------------------
+
+# JATOS data
 
 # List data file names
 data_files <- list.files(path = here::here("data/raw_data/main_study"), 
@@ -86,7 +94,7 @@ for(i in seq_along(data_files)){
   
 }
 
-### (2) Read-in and combine Prolific meta data -----------------------------------------------
+# Prolific data
 
 # List data file names
 meta_data_files <- list.files(path = here::here("data/raw_data/main_study"), 
@@ -94,12 +102,7 @@ meta_data_files <- list.files(path = here::here("data/raw_data/main_study"),
 meta_data <- lapply(meta_data_files, read.csv)
 meta_data <- data.table::rbindlist(meta_data) %>% as_tibble()
 
-
-# export list of Prolific IDs for custom block list
-
-meta_data$Participant.id <- sapply(meta_data$Participant.id, FUN = id_shuffle)
-
-### (3) Parse data -------------------------------------------------------------
+### (2) Parse data -------------------------------------------------------------
 
 online_data <- parsing_fun(file = all_jatos_dat, 
                            study_part = "online",
@@ -111,7 +114,7 @@ online_data <- parsing_fun(file = all_jatos_dat,
                            exclude_subjs = c("5a47c383e074d600013912cc|369450"))
 
 
-### (4) Make modification according to recruitment notes -----------------------
+### (3) Make modification according to recruitment notes -----------------------
 
 ### For the first three subjects that completed the study with an extra link, the findrisc response 1
 # (age) is not recorded because data wasn't transferred from the demographic data
@@ -167,7 +170,7 @@ online_data$questionnaire[online_data$questionnaire$subj_id == "c4d62a3d35",]$ip
   as.numeric(online_data$questionnaire[online_data$questionnaire$subj_id == "c4d62a3d35",]$ipaq_response_3)
 
 
-### (5) Questionnaire data processing ------------------------------------------
+### (4) Questionnaire data processing ------------------------------------------
 
 ## BMI - unrealistic values?
 
@@ -283,7 +286,7 @@ MCTQ_exclusion <- online_data$questionnaire[period_to_seconds(hm(online_data$que
 online_data$questionnaire[online_data$questionnaire$subj_id %in% MCTQ_exclusion,
                           grep("mctq", colnames(online_data$questionnaire))] <- NA
 
-### (6) Pre-registered data exclusion ------------------------------------------
+### (5) Pre-registered data exclusion ------------------------------------------
 
 exclude <- c()
 
@@ -322,7 +325,7 @@ exclude <- c(exclude, online_data$questionnaire$subj_id[aggregate(choice ~ subj_
                                                                   FUN = sum, data = online_data$game[online_data$game$phase == "game",])[,2] == 0])
 
 
-### (7) Data monitoring --------------------------------------------------------
+### (6) Data monitoring --------------------------------------------------------
 
 # Game strategy questions
 online_data$questionnaire$game_response_text_1[online_data$questionnaire$game_response_1 == 1]
@@ -334,7 +337,7 @@ online_data$questionnaire$technical_comments[!is.na(online_data$questionnaire$te
 online_data$questionnaire$layout_comments[!is.na(online_data$questionnaire$layout_comments)]
 
 
-### (8) Game based exclusion ---------------------------------------------------
+### (7) Game based exclusion ---------------------------------------------------
 
 # Clicking capacity has to be at least 7 so that subjects need to click more than once
 # one each level 
@@ -390,9 +393,211 @@ online_data$modelling_data <- online_data$modelling_data[!online_data$modelling_
 online_data$questionnaire <- online_data$questionnaire[!online_data$questionnaire$subj_id %in% exclude,] %>% as_tibble()
 
 
-### (9) Save cleaned data ------------------------------------------------------
+### (8) Save cleaned data ------------------------------------------------------
 setwd(here::here())
 saveRDS(online_data, "data/processed_data/main_study/online_data.RDS")
 saveRDS(online_data_excl, "data/processed_data/main_study/online_data_excl.RDS")
 write.csv(meta_data, "data/processed_data/main_study/online_meta_data.csv")
+
+
+##> Circadian follow-up data ------------------------------------------------------
+# (9) Read-in and parse data ------------------------------------------------------
+
+# JATOS data
+
+# List data file names
+data_files <- list.files(path = here::here("data/raw_data/chrono_followup/main"), 
+                         recursive = TRUE, pattern = ".txt", full.names = TRUE)
+
+circadian_followup_data <- parsing_fun(file = data_files, 
+                                       study_part = "chronotype_followup",
+                                       raw_data = TRUE)
+
+# add missed catch question columns with NA to match main dataset
+circadian_followup_data$questionnaire <- cbind(circadian_followup_data$questionnaire, 
+                                               "catch_question_pass_hard_4" = NA,
+                                               "catch_question_score_hard_4" = NA)
+
+# Prolific data
+
+# List data file names
+meta_data_files <- list.files(path = here::here("data/raw_data/chrono_followup/main"), 
+                              recursive = TRUE, pattern = ".csv", full.names = TRUE)
+meta_followup_data <- lapply(meta_data_files, read.csv)
+meta_followup_data <- data.table::rbindlist(meta_followup_data) %>% as_tibble()
+
+# Screening data
+
+data_files <- list.files(path = here::here("data/raw_data/chrono_followup/screening"), 
+                         recursive = TRUE, pattern = ".txt", full.names = TRUE)
+
+circadian_screening_data <- parsing_fun(file = data_files, 
+                                       study_part = "screening",
+                                       raw_data = TRUE)
+
+# Merge screening questionnaires with main data
+
+circadian_followup_data$questionnaire %<>% 
+  left_join(circadian_screening_data$questionnaire, 
+            by = c("subj_id" = "subj_id"))
+
+
+# (10) Questionnaire data processing  ------------------------------------------------------
+
+## BMI - unrealistic values?
+# height: 
+which(circadian_followup_data$questionnaire$bmi_response_1 < 150 |
+        circadian_followup_data$questionnaire$bmi_response_1 > 200)
+
+circadian_followup_data$questionnaire %>% 
+  select(bmi_response_1:bmi_result) %>% 
+  filter(bmi_response_1 <  150 | bmi_response_1 > 200)
+
+# weight: 
+which(circadian_followup_data$questionnaire$bmi_response_2 < 30 |
+        circadian_followup_data$questionnaire$bmi_response_2 > 150)
+
+# any unrealistic BMIs left?
+min(circadian_followup_data$questionnaire$bmi_result, na.rm = TRUE)
+max(circadian_followup_data$questionnaire$bmi_result, na.rm = TRUE)
+
+## IPAQ
+
+# Data cleaning according to manual 
+# exclude outliers (combined minutes > 960)
+
+for(subj in seq_along(circadian_followup_data$questionnaire$subj_id)){
+  if(all(!is.na(circadian_followup_data$questionnaire[subj,c("ipaq_response_2", "ipaq_response_4", "ipaq_response_6")]))){
+    
+    # exclude data points indicating more than 16h of exercise per day
+    if(sum(period_to_seconds(hm(circadian_followup_data$questionnaire[subj,c("ipaq_response_2", "ipaq_response_4", "ipaq_response_6")])) / 60) > 960){
+      circadian_followup_data$questionnaire[subj, c("ipaq_response_1", "ipaq_response_2", "ipaq_response_3", 
+                                                    "ipaq_response_4", "ipaq_response_5", "ipaq_response_6", 
+                                                    "ipaq_response_7", "ipaq_walking_MET", "ipaq_moderate_MET",
+                                                    "ipaq_vigorous_MET", "ipaq_sumScore")] <- NA
+      
+    } else {
+      for(i in c("ipaq_response_2", "ipaq_response_4", "ipaq_response_6")){
+        
+        # round exercise < 10 minutes down to 0
+        if((period_to_seconds(hm(circadian_followup_data$questionnaire[subj,i])) / 60) < 10){
+          circadian_followup_data$questionnaire[subj,i] <- "00:00"
+          
+          # round exercise > 180 minutes down to 3h
+        } else if((period_to_seconds(hm(circadian_followup_data$questionnaire[subj,i])) / 60) > 180){
+          circadian_followup_data$questionnaire[subj,i] <- "03:00"
+          
+          # recalculate scores
+          circadian_followup_data$questionnaire[subj,"ipaq_walking_MET"] <- 3.3 * as.numeric(circadian_followup_data$questionnaire[subj,"ipaq_response_5"]) * (period_to_seconds(hm(circadian_followup_data$questionnaire[subj,"ipaq_response_6"])) / 60)
+          circadian_followup_data$questionnaire[subj,"ipaq_moderate_MET"] <- 4 * as.numeric(circadian_followup_data$questionnaire[subj,"ipaq_response_3"]) * (period_to_seconds(hm(circadian_followup_data$questionnaire[subj,"ipaq_response_4"])) / 60)
+          circadian_followup_data$questionnaire[subj,"ipaq_vigorous_MET"] <- 8 * as.numeric(circadian_followup_data$questionnaire[subj,"ipaq_response_1"]) * (period_to_seconds(hm(circadian_followup_data$questionnaire[subj,"ipaq_response_2"])) / 60)
+          circadian_followup_data$questionnaire[subj,"ipaq_sumScore"] <- sum(circadian_followup_data$questionnaire[subj,c("ipaq_walking_MET", "ipaq_moderate_MET", "ipaq_vigorous_MET")])
+        } 
+      } 
+    }
+  }
+}
+
+## MCTQ
+
+### MCTQ data exclusion based on Roenneberg et al. (2012)
+# exclude subjects  who set an alarm on free days and who have extreme values 
+# (corrected MSF after midday)
+
+MCTQ_exclusion <- circadian_followup_data$questionnaire[period_to_seconds(hm(circadian_followup_data$questionnaire$mctq_MSF_SC)) > 12*60*60,1]
+circadian_followup_data$questionnaire[circadian_followup_data$questionnaire$subj_id %in% MCTQ_exclusion,
+                          grep("mctq", colnames(circadian_followup_data$questionnaire))] <- NA
+
+# (11) Pre-registered data exclusion ------------------------------------------------------
+
+exclude <- c()
+
+# Catch questions
+# "catch_question_pass_hard_1" coded wrong!!
+circadian_followup_data$questionnaire$catch_question_pass_hard_1 <- abs(circadian_followup_data$questionnaire$catch_question_pass_hard_1-1)
+catch_easy_exclude <- c()
+catch_hard_exclude <- c()
+for(i in 1:38){
+  # both easy questions have to be passed
+  if(circadian_followup_data$questionnaire$catch_question_pass_easy_2[i] & circadian_followup_data$questionnaire$catch_question_pass_easy_3[i]){
+    catch_easy_exclude[i] <- 0
+  } else {
+    catch_easy_exclude[i] <- 1
+  }
+  # hard catch question has to be passed
+  if(circadian_followup_data$questionnaire$catch_question_pass_hard_1[i]){
+    catch_hard_exclude[i] <- 0
+  } else {
+    catch_hard_exclude[i] <- 1
+  }
+}
+
+exclude <- c(exclude, circadian_followup_data$questionnaire$subj_id[catch_hard_exclude == 1 | catch_easy_exclude == 1])
+
+# All offers rejected in task
+exclude <- c(exclude, circadian_followup_data$questionnaire$subj_id[aggregate(choice ~ subj_id,
+                                                                              FUN = sum, data = circadian_followup_data$game[circadian_followup_data$game$phase == "game",])[,2] == 0])
+
+# Clicking capacity has to be at least 7 so that subjects need to click more than once
+# one each level 
+exclude <- c(exclude, unique(circadian_followup_data$game$subj_id[circadian_followup_data$game$clicking_calibration < 7]))
+
+# A big difference between the minimum and maximum clicking speed during calibration
+# indicates that the calibration value was miss-estimated 
+cali_diff <- aggregate(clicks ~ subj_id,
+                       FUN = function(x) abs(x[1] - x[2]),
+                       data = circadian_followup_data$game[circadian_followup_data$game$phase == "calibration" & 
+                                                             circadian_followup_data$game$trial != 1,])
+# (from main data set processing)
+cali_diff <- cali_diff[cali_diff$clicks >  30.2751,]
+
+exclude <- c(exclude, cali_diff$subj_id)
+
+# Change in max clicking capacity
+clicking_calibrations_pre_max <- aggregate(clicks ~ subj_id, FUN = function(x) max(x[1:3]), 
+                                           data = circadian_followup_data$game[circadian_followup_data$game$phase == "calibration",])
+
+clicking_calibrations_post_max <- aggregate(clicks ~ subj_id, FUN = function(x) max(x[4]), 
+                                            data = circadian_followup_data$game[circadian_followup_data$game$phase == "calibration",])
+
+change_mean <- mean(clicking_calibrations_pre_max$clicks - clicking_calibrations_post_max$clicks) 
+change_sd <- sd(clicking_calibrations_pre_max$clicks - clicking_calibrations_post_max$clicks) 
+
+exclude <- c(exclude, clicking_calibrations_pre_max[clicking_calibrations_pre_max$clicks - clicking_calibrations_post_max$clicks <
+                                                      -134.5161,]$subj_id)
+
+# Make everything a tibble
+circadian_followup_data$demographics <- as_tibble(circadian_followup_data$demographics)
+circadian_followup_data$game <- as_tibble(circadian_followup_data$game)
+circadian_followup_data$game_meta <- as_tibble(circadian_followup_data$game_meta)
+circadian_followup_data$modelling_data <- as_tibble(circadian_followup_data$modelling_data)
+circadian_followup_data$questionnaire <- as_tibble(circadian_followup_data$questionnaire)
+
+
+# (12) Save cleaned data ------------------------------------------------------
+setwd(here::here())
+saveRDS(circadian_followup_data, "data/processed_data/chrono_followup/circadian_followup_data.RDS")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

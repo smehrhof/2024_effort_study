@@ -90,7 +90,7 @@ parsing_fun <- function(file,
     } else if(study_part == "re_test"){
       comp_1_df[comp_i, "subj_id"] <- id_shuffle(unique(demographics$subj_id))
     } else if(study_part == "screening"){
-      comp_1_df[comp_i, "subj_id"] <- unique(demographics$prolific_id)
+      comp_1_df[comp_i, "subj_id"] <- id_shuffle(unique(demographics$prolific_id))
     }
     
     comp_1_df[comp_i, "age"] <- as.numeric(demographics$age)
@@ -754,7 +754,7 @@ parsing_fun <- function(file,
         
       }
     } else {
-      comp_3_one_df <- cbind("subj_id" = questionnaires$prolific_id[1],
+      comp_3_one_df <- cbind("subj_id" = id_shuffle(questionnaires$prolific_id[1]),
                              meq, mctq)    
     }
     
