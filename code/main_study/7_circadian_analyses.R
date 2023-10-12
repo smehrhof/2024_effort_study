@@ -16,6 +16,14 @@ setwd(here::here())
 
 # source functions
 source("github/effort-study/code/functions/helper_funs.R")
+source("github/effort-study/code/functions/parameter_estimates_fun.R")
+
+# load required packages
+librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, 
+                 MatchIt, writexl, lubridate, magrittr, bayestestR, rstanarm)
+
+# Color pallet 
+color_pal <- c("#E94D36", "#5B9BD5", "#71AB48", "#FDC219", "#8456B8", "#FF7236", "#1FD5B3", "#F781BE")
 
 # source dataset
 main_data <- readRDS("data/processed_data/main_study/online_data.RDS")
@@ -24,10 +32,6 @@ main_data <- readRDS("data/processed_data/main_study/online_data.RDS")
 main_data$game_meta %<>%
   mutate(start_time = start_time + 60*60,
          end_time = end_time + 60*60)
-
-# load required packages
-librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, 
-                 MatchIt, writexl, lubridate, magrittr, bayestestR, rstanarm)
 
 # should models be fitted or loaded? 
 run_models <- FALSE
@@ -530,6 +534,49 @@ a_glm <- stan_glm(estimate_a_scaled ~ chronotype * testing_group + age + gender,
                    iter = 40000, seed = 103)
 a_glm$coefficients
 hdi(a_glm)
+a_glm_r2 <- bayes_R2(a_glm)
+median(a_glm_r2)
+
+# Follow up GLMs on interaction
+a_glm_early <- stan_glm(estimate_a_scaled ~ testing_group + age + gender, 
+                  data = circadian_data_all %>% filter(chronotype == "early"), 
+                  iter = 40000, seed = 103)
+a_glm_early$coefficients
+hdi(a_glm_early)
+
+a_glm_late <- stan_glm(estimate_a_scaled ~ testing_group + age + gender, 
+                  data = circadian_data_all %>% filter(chronotype == "late"), 
+                  iter = 40000, seed = 103)
+a_glm_late$coefficients
+hdi(a_glm_late)
+
+# Plot 
+raincloud_plot(dat = circadian_data_all, title = "", 
+               xlab = "Testing time", ylab = "Parameter estimate", 
+               predictor_var = "testing_group", outcome_var = "estimate_kR", 
+               predictor_tick_lab = c("Morning", "Evening"), col = c(color_pal[1], color_pal[2]), 
+               include_grouping = TRUE, group_var = "chronotype", legendlab = "Chronotype") + 
+  theme(legend.position = "none")
+
+raincloud_plot(dat = circadian_data_all, title = "", 
+               xlab = "Testing time", ylab = "Parameter estimate", 
+               predictor_var = "testing_group", outcome_var = "estimate_a", 
+               predictor_tick_lab = c("Morning", "Evening"), col = c(color_pal[1], color_pal[2]), 
+               include_grouping = TRUE, group_var = "chronotype", legendlab = "Chronotype") + 
+  theme(legend.position = "none")
+
+
+raincloud_plot(dat = circadian_data_all %>% filter(chronotype == "early"), title = "", 
+               xlab = "Testing time", ylab = "Parameter estimate", 
+               predictor_var = "testing_group", outcome_var = "estimate_a", 
+               predictor_tick_lab = c("Morning", "Evening"), col = c(color_pal[1], color_pal[1]), 
+               include_grouping = FALSE)
+
+raincloud_plot(dat = circadian_data_all %>% filter(chronotype == "late"), title = "", 
+               xlab = "Testing time", ylab = "Parameter estimate", 
+               predictor_var = "testing_group", outcome_var = "estimate_a", 
+               predictor_tick_lab = c("Morning", "Evening"), col = c(color_pal[2], color_pal[2]), 
+               include_grouping = FALSE)
 
 
 
@@ -548,6 +595,8 @@ a_shaps_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + age + gender,
                   iter = 40000, seed = 123)
 a_shaps_glm$coefficients
 hdi(a_shaps_glm)
+a_shaps_glm_r2 <- bayes_R2(a_shaps_glm)
+median(a_shaps_glm_r2)
 # effect: more anhedonia predicts lower choice bias
 
 # dars
@@ -566,18 +615,65 @@ a_aes_glm$coefficients
 hdi(a_aes_glm)
 # effect: more apathy predicts lower choice bias
 
+# Plot
+
+a_shaps_plot <- ggplot(circadian_data_all, 
+                       aes(x = shaps_sumScore, y = estimate_a)) + 
+  geom_point(color = color_pal[3], alpha = 0.5, size = 1.25) +
+  geom_smooth(method = glm, color = color_pal[3], fill = color_pal[3]) +
+  scale_y_continuous(breaks = seq(-8, 8, 4), limits = c(-8, 8)) +
+  scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
+                     labels = c("low\nanhedonia", "high\nanhedonia")) +
+  labs(y = "Choice bias") +
+  theme(axis.title = element_text(size = 18),
+        axis.title.y = element_text(size = 20),
+        axis.text.x = element_text(size = 16),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size = 16),
+        axis.ticks.x = element_blank()) 
+
+a_dars_plot <- ggplot(circadian_data_all, aes(x = dars_sumScore, y = estimate_a)) + 
+  geom_point(color = color_pal[5], alpha = 0.5, size = 1.25) +
+  geom_smooth(method = glm, color = color_pal[5], fill = color_pal[5]) +
+  scale_y_continuous(breaks = seq(-8, 8, 4), limits = c(-8, 8)) +
+  scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
+                     labels = c("high\nanhedonia", "low\nanhedonia")) +
+  labs(y = "Choice bias") +
+  theme(axis.title = element_text(size = 18),
+        axis.title.y = element_text(size = 20),
+        axis.text.x = element_text(size = 16),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size = 16),
+        axis.ticks.x = element_blank()) 
+
+a_aes_plot <- ggplot(circadian_data_all, aes(x = aes_sumScore, y = estimate_a)) + 
+  geom_point(color = color_pal[1], alpha = 0.5, size = 1.25) +
+  geom_smooth(method = glm, color = color_pal[1], fill = color_pal[1]) +
+  scale_y_continuous(breaks = seq(-8, 8, 4), limits = c(-8, 8)) +
+  scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
+                     labels = c("high\napathy", "low\napathy")) +
+  labs(y = "Choice bias") +
+  theme(axis.title = element_text(size = 18),
+        axis.title.y = element_text(size = 20),
+        axis.text.x = element_text(size = 16),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size = 16),
+        axis.ticks.x = element_blank()) 
+
 ## Add chronotype and time of day to the GLMs that show effects
 
 # shaps
-a_shaps_circadian_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore * chronotype * testing_group + age + gender, 
+a_shaps_circadian_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + chronotype * testing_group + age + gender, 
                                   data = circadian_data_all, 
                         iter = 40000, seed = 123)
 a_shaps_circadian_glm$coefficients
 hdi(a_shaps_circadian_glm)
+a_shaps_circadian_glm_r2 <- bayes_R2(a_shaps_circadian_glm)
+median(a_shaps_circadian_glm_r2)
 # effect: more anhedonia predicts lower choice bias
 
 # dars
-a_dars_circadian_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore * chronotype * testing_group + age + gender, 
+a_dars_circadian_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + chronotype * testing_group + age + gender, 
                                  data = circadian_data_all, 
                                   iter = 40000, seed = 123)
 a_dars_circadian_glm$coefficients
@@ -585,27 +681,121 @@ hdi(a_dars_circadian_glm)
 # effect: more anhedonia predicts lower choice bias
 
 # aes
-a_aes_circadian_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore * chronotype * testing_group + age + gender, 
+a_aes_circadian_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + chronotype * testing_group + age + gender, 
                                 data = circadian_data_all, 
                       iter = 40000, seed = 123)
 a_aes_circadian_glm$coefficients
 hdi(a_aes_circadian_glm)
 # effect: more apathy predicts lower choice bias
 
+# Plot 
+
+a_shaps_circadian_data <- tibble("effect" = 1:7,
+                                 "mean" = a_shaps_circadian_glm$coefficients[c(2:4, 7:10)], 
+                                 "hdi_lower" = hdi(a_shaps_circadian_glm)[c(2:4, 7:10),3], 
+                                 "hdi_upper" = hdi(a_shaps_circadian_glm)[c(2:4, 7:10),4])
 
 
+ggplot(a_shaps_circadian_data, aes(x=effect, y=mean)) + 
+  geom_pointrange(aes(ymin=hdi_lower, ymax=hdi_upper))
 
 
+a_shaps_circadian_data
+a_shaps_circadian_glm$coefficients
+hdi(a_shaps_circadian_glm)
 
 
+## Psychiatric effects on choic bias in early and late separately 
+
+# shaps early
+a_shaps_early_circadian_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + testing_group + age + gender, 
+                                  data = circadian_data_all %>% filter(chronotype == "early"), 
+                                  iter = 40000, seed = 123)
+a_shaps_early_circadian_glm$coefficients
+hdi(a_shaps_early_circadian_glm)
+a_shaps_early_circadian_glm_r2 <- bayes_R2(a_shaps_early_circadian_glm)
+median(a_shaps_early_circadian_glm_r2)
+# effect: more anhedonia predicts lower choice bias
 
 
+# shaps late
+a_shaps_late_circadian_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + testing_group + age + gender, 
+                                        data = circadian_data_all %>% filter(chronotype == "late"), 
+                                        iter = 40000, seed = 123)
+a_shaps_late_circadian_glm$coefficients
+hdi(a_shaps_late_circadian_glm)
+a_shaps_late_circadian_glm_r2 <- bayes_R2(a_shaps_late_circadian_glm)
+median(a_shaps_late_circadian_glm_r2)
+
+# dars early
+a_dars_early_circadian_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + testing_group + age + gender, 
+                                        data = circadian_data_all %>% filter(chronotype == "early"), 
+                                        iter = 40000, seed = 123)
+a_dars_early_circadian_glm$coefficients
+hdi(a_dars_early_circadian_glm)
+a_dars_early_circadian_glm_r2 <- bayes_R2(a_dars_early_circadian_glm)
+median(a_dars_early_circadian_glm_r2)
+# effect: more anhedonia predicts lower choice bias
+
+# dars late
+a_dars_late_circadian_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + testing_group + age + gender, 
+                                       data = circadian_data_all %>% filter(chronotype == "late"), 
+                                       iter = 40000, seed = 123)
+a_dars_late_circadian_glm$coefficients
+hdi(a_dars_late_circadian_glm)
+a_dars_late_circadian_glm_r2 <- bayes_R2(a_dars_late_circadian_glm)
+median(a_dars_late_circadian_glm_r2)
 
 
+# aes early
+a_aes_early_circadian_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + testing_group + age + gender, 
+                                       data = circadian_data_all %>% filter(chronotype == "early"), 
+                                       iter = 40000, seed = 123)
+a_aes_early_circadian_glm$coefficients
+hdi(a_aes_early_circadian_glm)
+a_aes_early_circadian_glm_r2 <- bayes_R2(a_aes_early_circadian_glm)
+median(a_aes_early_circadian_glm_r2)
+# effect: more anhedonia predicts lower choice bias
+
+# aes late
+a_aes_late_circadian_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + testing_group + age + gender, 
+                                      data = circadian_data_all %>% filter(chronotype == "late"), 
+                                      iter = 40000, seed = 123)
+a_aes_late_circadian_glm$coefficients
+hdi(a_aes_late_circadian_glm)
+a_aes_late_circadian_glm_r2 <- bayes_R2(a_aes_late_circadian_glm)
+median(a_aes_late_circadian_glm_r2)
 
 
+a_shaps_early_plot <- ggplot(circadian_data_all %>% filter(chronotype == "early"), 
+                       aes(x = shaps_sumScore, y = estimate_a)) + 
+  geom_point(color = color_pal[3], alpha = 0.5, size = 1.25) +
+  geom_smooth(method = glm, color = color_pal[3], fill = color_pal[3]) +
+  scale_y_continuous(breaks = seq(-8, 8, 4), limits = c(-8, 8)) +
+  scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
+                     labels = c("low\nanhedonia", "high\nanhedonia")) +
+  labs(y = "Choice bias", title = "Early chronotypes") +
+  theme(axis.title = element_text(size = 18),
+        axis.title.y = element_text(size = 20),
+        axis.text.x = element_text(size = 16),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size = 16),
+        axis.ticks.x = element_blank()) 
 
+a_shaps_late_plot <- ggplot(circadian_data_all %>% filter(chronotype == "late"), 
+                             aes(x = shaps_sumScore, y = estimate_a)) + 
+  geom_point(color = color_pal[5], alpha = 0.5, size = 1.25) +
+  geom_smooth(method = glm, color = color_pal[5], fill = color_pal[5]) +
+  scale_y_continuous(breaks = seq(-8, 8, 4), limits = c(-8, 8)) +
+  scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
+                     labels = c("low\nanhedonia", "high\nanhedonia")) +
+  labs(y = "Choice bias", title = "Late chronotypes") +
+  theme(axis.title = element_text(size = 18),
+        axis.title.y = element_text(size = 20),
+        axis.text.x = element_text(size = 16),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size = 16),
+        axis.ticks.x = element_blank()) 
 
-
-
-
+ggarrange(a_shaps_early_plot, a_shaps_late_plot, 
+          ncol = 2, nrow = 1)
