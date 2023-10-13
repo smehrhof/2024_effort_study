@@ -20,7 +20,7 @@
 # (14) Save cleaned data
 
 # Set working directory
-here::i_am("github/effort-study/code/main_study/1_data_processing.R")
+here::i_am("github/effort-study/code/analyses/1_data_processing.R")
 setwd(here::here())
 
 # source functions
@@ -28,7 +28,7 @@ source("github/effort-study/code/functions/helper_funs.R")
 source("github/effort-study/code/functions/parsing_fun.R")
 
 # load required packages
-librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, writexl)
+librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, writexl, purrr, magrittr)
 
 ##> Main data -----------------------------------------------
 ### (1) Read-in and combine data -----------------------------------------------

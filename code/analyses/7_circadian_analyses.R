@@ -11,7 +11,7 @@
 # (6) Run GLMs with followup data
 
 # Set working directory
-here::i_am("github/effort-study/code/main_study/7_circadian_analyses.R")
+here::i_am("github/effort-study/code/analyses/7_circadian_analyses.R")
 setwd(here::here())
 
 # source functions

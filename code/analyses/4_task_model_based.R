@@ -12,7 +12,7 @@
 # (7) Individual parameter estimation 
 
 # Set working directory
-here::i_am("github/effort-study/code/main_study/4_task_model_based.R")
+here::i_am("github/effort-study/code/analyses/4_task_model_based.R")
 setwd(here::here())
 
 # source functions
@@ -22,11 +22,11 @@ source("github/effort-study/code/functions/model_convergence_check_fun.R")
 source("github/effort-study/code/functions/model_comparison_fun.R")
 
 # source dataset
-main_data <- readRDS("github/effort-study/data/processed_data/online_data.RDS")
+main_data <- readRDS("data/processed_data/main_study/online_data.RDS")
 task_data <- main_data$modelling_data
 
 # load required packages
-librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, writexl, lubridate)
+librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, writexl, lubridate, magrittr, pushoverr)
 
 # run model fitting? 
 model_fitting <- FALSE
@@ -63,7 +63,7 @@ if(model_fitting){
   # Model 1
   m1_para_fit <- m1_parabolic_stan_model$sample(
     data = model_dat, 
-    refresh = 0, chains = 4, iter_warmup = 20, iter_sampling = 60, 
+    refresh = 0, chains = 1, iter_warmup = 20, iter_sampling = 60, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
     output_dir = here::here("data/model_fits/main_study"), output_basename = "m1_para_mcmc"
   )

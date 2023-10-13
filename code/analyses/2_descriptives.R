@@ -9,7 +9,7 @@
 # (4) Questionnaire measures
 
 # Set working directory
-here::i_am("github/effort-study/code/main_study/2_descriptives.R")
+here::i_am("github/effort-study/code/analyses/2_descriptives.R")
 setwd(here::here())
 
 # source functions
@@ -20,7 +20,7 @@ main_data <- readRDS("data/processed_data/main_study/online_data.RDS")
 main_data_excl <- readRDS("data/processed_data/main_study/online_data_excl.RDS")
 
 # load required packages
-librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, writexl, lubridate)
+librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, writexl, lubridate, purrr, magrittr)
 
 ### (1) Demographics -----------------------------------------------
 
