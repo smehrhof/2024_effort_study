@@ -20,7 +20,7 @@ model_comparison <- function(model_paths = NULL,
                              ELPD_title = "Model comparision based on ELPD",
                              ELPD_col = "#71AB48", 
                              LOO_ELPD_plot = TRUE,
-                             LOO_ELPD_title = "Model comparision based on LOO and ELPD",
+                             LOO_ELPD_title = "LOO and ELPD model comparison",
                              LOO_ELPD_col = c("#5B9BD5", "#71AB48")){
   
   require(ggplot2)
@@ -44,7 +44,7 @@ model_comparison <- function(model_paths = NULL,
       }
     }
   }
-  res$loo_output <- loo_output
+  res$loo_output <- map(loo_output, function(x) x$estimates)
   
   if(LOO_plot){
     model_comp_loo_dat <- data.frame("model" = names(loo_output),
@@ -60,12 +60,12 @@ model_comparison <- function(model_paths = NULL,
       ggtitle(LOO_title) +
       coord_flip() +
       theme(legend.position = "none", 
-            plot.title = element_text(size = 6),
-            axis.title = element_text(size = 6),
-            axis.text.x = element_text(size = 6),
-            axis.text.y = element_text(size = 6),
-            legend.title = element_text(size = 8),
-            legend.text = element_text(size = 8)) 
+            plot.title = element_text(size = 10),
+            axis.title = element_text(size = 10),
+            axis.text.x = element_text(size = 10),
+            axis.text.y = element_text(size = 10),
+            legend.title = element_text(size = 10),
+            legend.text = element_text(size = 10)) 
     
     res$LOO_plot <- model_comp_loo_plot
   }
@@ -84,12 +84,12 @@ model_comparison <- function(model_paths = NULL,
       ggtitle(ELPD_title) +
       coord_flip() +
       theme(legend.position = "none", 
-            plot.title = element_text(size = 6),
-            axis.title = element_text(size = 6),
-            axis.text.x = element_text(size = 6),
-            axis.text.y = element_text(size = 6),
-            legend.title = element_text(size = 8),
-            legend.text = element_text(size = 8)) 
+            plot.title = element_text(size = 10),
+            axis.title = element_text(size = 10),
+            axis.text.x = element_text(size = 10),
+            axis.text.y = element_text(size = 10),
+            legend.title = element_text(size = 10),
+            legend.text = element_text(size = 10)) 
     
     res$ELPD_plot <- model_comp_elpd_plot
   }
@@ -107,17 +107,17 @@ model_comparison <- function(model_paths = NULL,
       scale_fill_manual(values = LOO_ELPD_col) +
       geom_errorbar(aes(ymin=loo_elpd-loo_elpd_sd, ymax=loo_elpd+loo_elpd_sd), width=.2,
                     position="identity") +
-      ylab("Information criterion (± SE)") + xlab("Model") +
+      ylab("Information criterion (± SE)") + xlab("") +
       ggtitle(LOO_ELPD_title) +
       coord_flip() +
       labs(fill = "Measure") +
       theme(legend.position = "bottom", 
-            plot.title = element_text(size = 8),
-            axis.title = element_text(size = 6),
-            axis.text.x = element_text(size = 6),
-            axis.text.y = element_text(size = 6),
-            legend.title = element_text(size = 6),
-            legend.text = element_text(size = 6), 
+            plot.title = element_text(size = 10),
+            axis.title = element_text(size = 10),
+            axis.text.x = element_text(size = 10),
+            axis.text.y = element_text(size = 10),
+            legend.title = element_text(size = 10),
+            legend.text = element_text(size = 10), 
             legend.key.size = unit(0.25, 'cm'))
     
     indiv_plot <- annotate_figure(model_comp_loo_elpd_plot, 

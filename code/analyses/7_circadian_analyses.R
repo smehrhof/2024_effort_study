@@ -7,8 +7,10 @@
 # (2) Fit models
 # (3) Run GLMs
 # (4) Add follow-up data
-# (5) Fit models with followup data
-# (6) Run GLMs with followup data
+# (5) Sample demographics
+# (6) Fit models with followup data
+# (7) Run GLMs with followup data
+# (8) Run GLMs with SHAPS, DARS, and AES
 
 # Set working directory
 here::i_am("github/effort-study/code/analyses/7_circadian_analyses.R")
@@ -16,6 +18,8 @@ setwd(here::here())
 
 # source functions
 source("github/effort-study/code/functions/helper_funs.R")
+source("github/effort-study/code/functions/model_preprocess_fun.R")
+source("github/effort-study/code/functions/model_convergence_check_fun.R")
 source("github/effort-study/code/functions/parameter_estimates_fun.R")
 
 # load required packages
@@ -43,10 +47,10 @@ run_models <- FALSE
 # pm: 06:00pm - 09:59pm
 
 main_data$game_meta %<>% 
-  mutate(testing_group = case_when(update(start_time, year=2000, month=1, mday=1) > ymd_hms("2000-01-01 08:00:00") & 
-                                     update(start_time, year=2000, month=1, mday=1) < ymd_hms("2000-01-01 11:59:59") ~ "am",
-                                   update(start_time, year=2000, month=1, mday=1) > ymd_hms("2000-01-01 18:00:00") & 
-                                     update(start_time, year=2000, month=1, mday=1) < ymd_hms("2000-01-01 21:59:59") ~ "pm", 
+  mutate(testing_group = case_when(update(start_time, year=2000, month=1, mday=1) >= ymd_hms("2000-01-01 08:00:00") & 
+                                     update(start_time, year=2000, month=1, mday=1) <= ymd_hms("2000-01-01 11:59:59") ~ "am",
+                                   update(start_time, year=2000, month=1, mday=1) >= ymd_hms("2000-01-01 18:00:00") & 
+                                     update(start_time, year=2000, month=1, mday=1) <= ymd_hms("2000-01-01 21:59:59") ~ "pm", 
                                    .default = "none"))
 
 # Grouping by chronotype
@@ -71,9 +75,11 @@ circadian_data <- list(main_data$demographics, main_data$game_meta, main_data$qu
                             testing_group == "pm" & chronotype == "late" ~ "pm_late",
                             .default = "none")) %>% 
   filter(group != "none") %>% 
-  select(subj_id, age, gender, shaps_sumScore, dars_sumScore, aes_sumScore, 
+  select(subj_id, age, gender, 
+         psych_neurdev, psych_neurdev_condition, antidepressant,
+         shaps_sumScore, dars_sumScore, aes_sumScore, mdd_current,
          meq_sumScore, mctq_MSF_SC, findrisc_sumScore, bmi_result, ipaq_sumScore, 
-         mdd_past, mdd_current, mdd_recurrent, testing_group, chronotype, group)
+         mdd_current, testing_group, chronotype, group)
 
 # Sub-sample sizes
 circadian_data %>% 
@@ -82,188 +88,185 @@ circadian_data %>%
 ### (2) Fit models -----------------------------------------------
 
 # Load models
-m2_parabolic_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_parabolic/ed_m2_parabolic.stan")
 m3_parabolic_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_parabolic/ed_m3_parabolic.stan")
-m3_linear_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_linear/ed_m3_linear.stan")
 
+if(run_models){
+  
 ### AM testing, early chronoytpe
-
-task_am_early <- main_data$modelling_data %>% 
-  filter(subjID %in% circadian_data$subj_id[circadian_data$group == "am_early"])
-
-if(run_models){
-model_dat_am_early <- model_preprocessing(raw_data = task_am_early,
-                                 retest = FALSE,
-                                 subjs = unique(task_am_early$subjID), 
-                                 n_subj = length(unique(task_am_early$subjID)), 
-                                 t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_am_early)[,2], 
-                                 t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_am_early)[,2]))
-
-# Parabolic model, 3 parameters
-  m3_para_fit_am_early <- m3_parabolic_stan_model$sample(
+  task_am_early <- main_data$modelling_data %>% 
+    filter(subjID %in% circadian_data$subj_id[circadian_data$group == "am_early"])
+  
+  model_dat_am_early <- model_preprocessing(raw_data = task_am_early,
+                                            retest = FALSE,
+                                            subjs = unique(task_am_early$subjID), 
+                                            n_subj = length(unique(task_am_early$subjID)), 
+                                            t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_am_early)[,2], 
+                                            t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_am_early)[,2]))
+  
+  m3_para_am_early_fit <- m3_parabolic_stan_model$sample(
     data = model_dat_am_early, 
-    refresh = 0, chains = 4, iter_warmup = 2000, iter_sampling = 6000, 
+    refresh = 0, chains = 4, parallel_chains = 4,
+    iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = here::here("data/model_fits/chrono_followup"), output_basename = "m3_para_mcmc_am_early"
+    output_dir = NULL, output_basename = "m3_para_am_early_mcmc"
   )
-  saveRDS(m3_para_fit_am_early, here::here("data/model_fits/chrono_followup/m3_para_fit_am_early.RDS"))  
-} else {
-  m3_para_fit_am_early <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_fit_am_early.RDS"))
-}
-
-
-# Convergence check 
-m3_para_check_am_early <- convergence_check(m3_para_fit_am_early, 
-                                   params = c("kE", "kR", "a"), 
-                                   Rhat = TRUE, ess = TRUE,
-                                   trace_plot = TRUE, rank_hist = FALSE)
-m3_para_check_am_early$Rhat
-m3_para_check_am_early$ess
-m3_para_check_am_early$trace_plot
-
-# Get individual parameters
-
-params_am_early <- get_params(subj_id = unique(task_am_early$subjID), 
-                              model_fit = m3_para_fit_am_early, 
-                              n_subj = 63, 
-                              n_params = 3, 
-                              param_names = c("kE", "kR", "a"))
-
-
-### PM testing, early chronoytpe
-
-task_pm_early <- main_data$modelling_data %>% 
-  filter(subjID %in% circadian_data$subj_id[circadian_data$group == "pm_early"])
-
-if(run_models){
-model_dat_pm_early <- model_preprocessing(raw_data = task_pm_early,
-                                          retest = FALSE,
-                                          subjs = unique(task_pm_early$subjID), 
-                                          n_subj = length(unique(task_pm_early$subjID)), 
-                                          t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_pm_early)[,2], 
-                                          t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_pm_early)[,2]))
-
-# Parabolic model, 3 parameters
-  m3_para_fit_pm_early <- m3_parabolic_stan_model$sample(
+  # Convergence check
+  m3_para_am_early_check <- convergence_check(m3_para_am_early_fit, 
+                                                  params = c("kE", "kR", "a"), 
+                                                  Rhat = TRUE, ess = TRUE,
+                                                  trace_plot = TRUE, rank_hist = FALSE)
+  m3_para_am_early_check$trace_plot
+  saveRDS(list(m3_para_am_early_check$Rhat, m3_para_am_early_check$ess), 
+          here::here("data/model_fits/chrono_followup/m3_para_am_early_check.RDS"))
+  # LOO for model comparisons
+  m3_para_am_early_loo <- m3_para_am_early_fit$loo()
+  saveRDS(m3_para_am_early_loo, here::here("data/model_fits/chrono_followup/m3_para_am_early_loo.RDS"))
+  # Parameter estimates
+  m3_para_am_early_params <- get_params(subj_id = unique(task_am_early$subjID), 
+                                        model_fit = m3_para_am_early_fit, 
+                                        n_subj = length(unique(task_am_early$subjID)), 
+                                        n_params = 3, 
+                                        param_names = c("kE", "kR", "a"))
+  saveRDS(m3_para_am_early_params, here::here("data/model_fits/chrono_followup/m3_para_am_early_params.RDS"))
+  
+  
+  ### PM testing, early chronoytpe
+  task_pm_early <- main_data$modelling_data %>% 
+    filter(subjID %in% circadian_data$subj_id[circadian_data$group == "pm_early"])
+  
+  model_dat_pm_early <- model_preprocessing(raw_data = task_pm_early,
+                                            retest = FALSE,
+                                            subjs = unique(task_pm_early$subjID), 
+                                            n_subj = length(unique(task_pm_early$subjID)), 
+                                            t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_pm_early)[,2], 
+                                            t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_pm_early)[,2]))
+  
+  m3_para_pm_early_fit <- m3_parabolic_stan_model$sample(
     data = model_dat_pm_early, 
-    refresh = 0, chains = 4, iter_warmup = 2000, iter_sampling = 6000, 
+    refresh = 0, chains = 4, parallel_chains = 4,
+    iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = here::here("data/model_fits/chrono_followup"), output_basename = "m3_para_mcmc_pm_early"
+    output_dir = NULL, output_basename = "m3_para_pm_early_mcmc"
   )
-  saveRDS(m3_para_fit_pm_early, here::here("data/model_fits/chrono_followup/m3_para_fit_pm_early.RDS"))
-} else {
-  m3_para_fit_pm_early <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_fit_pm_early.RDS"))
-}
+  # Convergence check
+  m3_para_pm_early_check <- convergence_check(m3_para_pm_early_fit, 
+                                              params = c("kE", "kR", "a"), 
+                                              Rhat = TRUE, ess = TRUE,
+                                              trace_plot = TRUE, rank_hist = FALSE)
+  m3_para_pm_early_check$trace_plot
+  saveRDS(list(m3_para_pm_early_check$Rhat, m3_para_pm_early_check$ess), 
+          here::here("data/model_fits/chrono_followup/m3_para_pm_early_check.RDS"))
+  # LOO for model comparisons
+  m3_para_pm_early_loo <- m3_para_pm_early_fit$loo()
+  saveRDS(m3_para_pm_early_loo, here::here("data/model_fits/chrono_followup/m3_para_pm_early_loo.RDS"))
+  # Parameter estimates
+  m3_para_pm_early_params <- get_params(subj_id = unique(task_pm_early$subjID), 
+                                        model_fit = m3_para_pm_early_fit, 
+                                        n_subj = length(unique(task_pm_early$subjID)), 
+                                        n_params = 3, 
+                                        param_names = c("kE", "kR", "a"))
+  saveRDS(m3_para_pm_early_params, here::here("data/model_fits/chrono_followup/m3_para_pm_early_params.RDS"))
 
-# Convergence check 
-m3_para_check_pm_early <- convergence_check(m3_para_fit_pm_early, 
-                                            params = c("kE", "kR", "a"), 
-                                            Rhat = TRUE, ess = TRUE,
-                                            trace_plot = TRUE, rank_hist = FALSE)
-m3_para_check_pm_early$Rhat
-m3_para_check_pm_early$ess
-m3_para_check_pm_early$trace_plot
-
-# Get individual parameters
-
-params_pm_early <- get_params(subj_id = unique(task_pm_early$subjID), 
-                              model_fit = m3_para_fit_pm_early, 
-                              n_subj = length(unique(task_pm_early$subjID)), 
-                              n_params = 3, 
-                              param_names = c("kE", "kR", "a"))
-
-
-### AM testing, late chronoytpe
-
-task_am_late <- main_data$modelling_data %>% 
-  filter(subjID %in% circadian_data$subj_id[circadian_data$group == "am_late"])
-
-if(run_models){
-model_dat_am_late <- model_preprocessing(raw_data = task_am_late,
-                                         retest = FALSE,
-                                         subjs = unique(task_am_late$subjID), 
-                                         n_subj = length(unique(task_am_late$subjID)), 
-                                         t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_am_late)[,2], 
-                                         t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_am_late)[,2]))
-
-# Parabolic model, 3 parameters
-  m3_para_fit_am_late <- m3_parabolic_stan_model$sample(
+  ### AM testing, late chronoytpe
+  task_am_late <- main_data$modelling_data %>% 
+    filter(subjID %in% circadian_data$subj_id[circadian_data$group == "am_late"])
+  
+  model_dat_am_late <- model_preprocessing(raw_data = task_am_late,
+                                            retest = FALSE,
+                                            subjs = unique(task_am_late$subjID), 
+                                            n_subj = length(unique(task_am_late$subjID)), 
+                                            t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_am_late)[,2], 
+                                            t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_am_late)[,2]))
+  
+  m3_para_am_late_fit <- m3_parabolic_stan_model$sample(
     data = model_dat_am_late, 
-    refresh = 0, chains = 4, iter_warmup = 2000, iter_sampling = 6000, 
+    refresh = 0, chains = 4, parallel_chains = 4,
+    iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = here::here("data/model_fits/chrono_followup"), output_basename = "m3_para_mcmc_am_late"
+    output_dir = NULL, output_basename = "m3_para_am_late_mcmc"
   )
-  saveRDS(m3_para_fit_am_late, here::here("data/model_fits/chrono_followup/m3_para_fit_am_late.RDS"))
-} else {
-  m3_para_fit_am_late <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_fit_am_late.RDS"))
-}
+  # Convergence check
+  m3_para_am_late_check <- convergence_check(m3_para_am_late_fit, 
+                                              params = c("kE", "kR", "a"), 
+                                              Rhat = TRUE, ess = TRUE,
+                                              trace_plot = TRUE, rank_hist = FALSE)
+  m3_para_am_late_check$trace_plot
+  saveRDS(list(m3_para_am_late_check$Rhat, m3_para_am_late_check$ess), 
+          here::here("data/model_fits/chrono_followup/m3_para_am_late_check.RDS"))
+  # LOO for model comparisons
+  m3_para_am_late_loo <- m3_para_am_late_fit$loo()
+  saveRDS(m3_para_am_late_loo, here::here("data/model_fits/chrono_followup/m3_para_am_late_loo.RDS"))
+  # Parameter estimates
+  m3_para_am_late_params <- get_params(subj_id = unique(task_am_late$subjID), 
+                                        model_fit = m3_para_am_late_fit, 
+                                        n_subj = length(unique(task_am_late$subjID)), 
+                                        n_params = 3, 
+                                        param_names = c("kE", "kR", "a"))
+  saveRDS(m3_para_am_late_params, here::here("data/model_fits/chrono_followup/m3_para_am_late_params.RDS"))
 
-# Convergence check 
-m3_para_check_am_late <- convergence_check(m3_para_fit_am_late, 
-                                           params = c("kE", "kR", "a"), 
-                                           Rhat = TRUE, ess = TRUE,
-                                           trace_plot = TRUE, rank_hist = FALSE)
-m3_para_check_am_late$Rhat
-m3_para_check_am_late$ess
-m3_para_check_am_late$trace_plot
-
-# Get individual parameters
-
-params_am_late <- get_params(subj_id = unique(task_am_late$subjID), 
-                             model_fit = m3_para_fit_am_late, 
-                             n_subj = length(unique(task_am_late$subjID)), 
-                             n_params = 3, 
-                             param_names = c("kE", "kR", "a"))
-
-
-
-### PM testing, late chronoytpe
-
-task_pm_late <- main_data$modelling_data %>% 
-  filter(subjID %in% circadian_data$subj_id[circadian_data$group == "pm_late"])
-
-if(run_models){
-model_dat_pm_late <- model_preprocessing(raw_data = task_pm_late,
-                                          retest = FALSE,
-                                          subjs = unique(task_pm_late$subjID), 
-                                          n_subj = length(unique(task_pm_late$subjID)), 
-                                          t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_pm_late)[,2], 
-                                          t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_pm_late)[,2]))
-
-# Parabolic model, 3 parameters
-  m3_para_fit_pm_late <- m3_parabolic_stan_model$sample(
+  ### PM testing, late chronoytpe
+  task_pm_late <- main_data$modelling_data %>% 
+    filter(subjID %in% circadian_data$subj_id[circadian_data$group == "pm_late"])
+  
+  model_dat_pm_late <- model_preprocessing(raw_data = task_pm_late,
+                                            retest = FALSE,
+                                            subjs = unique(task_pm_late$subjID), 
+                                            n_subj = length(unique(task_pm_late$subjID)), 
+                                            t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_pm_late)[,2], 
+                                            t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_pm_late)[,2]))
+  
+  m3_para_pm_late_fit <- m3_parabolic_stan_model$sample(
     data = model_dat_pm_late, 
-    refresh = 0, chains = 4, iter_warmup = 2000, iter_sampling = 6000, 
+    refresh = 0, chains = 4, parallel_chains = 4,
+    iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = here::here("data/model_fits/chrono_followup"), output_basename = "m3_para_mcmc_pm_late"
+    output_dir = NULL, output_basename = "m3_para_pm_late_mcmc"
   )
-  saveRDS(m3_para_fit_pm_late, here::here("data/model_fits/chrono_followup/m3_para_fit_pm_late.RDS"))
+  # Convergence check
+  m3_para_pm_late_check <- convergence_check(m3_para_pm_late_fit, 
+                                              params = c("kE", "kR", "a"), 
+                                              Rhat = TRUE, ess = TRUE,
+                                              trace_plot = TRUE, rank_hist = FALSE)
+  m3_para_pm_late_check$trace_plot
+  saveRDS(list(m3_para_pm_late_check$Rhat, m3_para_pm_late_check$ess), 
+          here::here("data/model_fits/chrono_followup/m3_para_pm_late_check.RDS"))
+  # LOO for model comparisons
+  m3_para_pm_late_loo <- m3_para_pm_late_fit$loo()
+  saveRDS(m3_para_pm_late_loo, here::here("data/model_fits/chrono_followup/m3_para_pm_late_loo.RDS"))
+  # Parameter estimates
+  m3_para_pm_late_params <- get_params(subj_id = unique(task_pm_late$subjID), 
+                                        model_fit = m3_para_pm_late_fit, 
+                                        n_subj = length(unique(task_pm_late$subjID)), 
+                                        n_params = 3, 
+                                        param_names = c("kE", "kR", "a"))
+  saveRDS(m3_para_pm_late_params, here::here("data/model_fits/chrono_followup/m3_para_pm_late_params.RDS"))
+  
 } else {
-  m3_para_fit_pm_late <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_fit_pm_late.RDS"))
+  ### AM testing, early chronoytpe
+  m3_para_am_early_check <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_early_check.RDS"))
+  m3_para_am_early_loo <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_early_loo.RDS"))
+  m3_para_am_early_params <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_early_params.RDS"))
+  
+  ### PM testing, early chronoytpe
+  m3_para_pm_early_check <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_early_check.RDS"))
+  m3_para_pm_early_loo <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_early_loo.RDS"))
+  m3_para_pm_early_params <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_early_params.RDS"))
+  
+  ### AM testing, late chronoytpe
+  m3_para_am_late_check <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_late_check.RDS"))
+  m3_para_am_late_loo <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_late_loo.RDS"))
+  m3_para_am_late_params <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_late_params.RDS"))
+  
+  ### PM testing, late chronoytpe
+  m3_para_pm_late_check <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_late_check.RDS"))
+  m3_para_pm_late_loo <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_late_loo.RDS"))
+  m3_para_pm_late_params <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_late_params.RDS"))
 }
-
-# Convergence check 
-m3_para_check_pm_late <- convergence_check(m3_para_fit_pm_late, 
-                                            params = c("kE", "kR", "a"), 
-                                            Rhat = TRUE, ess = TRUE,
-                                            trace_plot = TRUE, rank_hist = FALSE)
-m3_para_check_pm_late$Rhat
-m3_para_check_pm_late$ess
-m3_para_check_pm_late$trace_plot
-
-# Get individual parameters
-
-params_pm_late <- get_params(subj_id = unique(task_pm_late$subjID), 
-                             model_fit = m3_para_fit_pm_late, 
-                             n_subj = length(unique(task_pm_late$subjID)), 
-                             n_params = 3, 
-                             param_names = c("kE", "kR", "a"))
-
 
 ### Merge to one dataset for analyses
 
-params_data <- bind_rows(params_am_early$individual_params, params_pm_early$individual_params, 
-                         params_am_late$individual_params, params_pm_late$individual_params) %>%
+params_data <- bind_rows(m3_para_am_early_params$individual_params, m3_para_pm_early_params$individual_params, 
+                         m3_para_am_late_params$individual_params, m3_para_pm_late_params$individual_params) %>%
   pivot_wider(names_from = parameter, 
               values_from = c(estimate:hdi_upper)) %>% 
   # add scales mean parameter estimates for Bayesian GLMs
@@ -280,19 +283,19 @@ circadian_data %<>%
 
 # Effort sensitivity
 kE_glm <- stan_glm(estimate_kE_scaled ~ testing_group * chronotype + age + gender, data = circadian_data, 
-                                iter = 40000, seed = 123)
+                                iter = 2000, seed = 123)
 kE_glm$coefficients
 hdi(kE_glm)
 
 # Reward sensitivity
 kR_glm <- stan_glm(estimate_kR_scaled ~ testing_group * chronotype + age + gender, data = circadian_data, 
-                   iter = 40000, seed = 123)
+                   iter = 2000, seed = 123)
 kR_glm$coefficients
 hdi(kR_glm)
 
 # Choice bias
 a_glm <- stan_glm(estimate_a_scaled ~ testing_group * chronotype + age + gender, data = circadian_data, 
-                   iter = 40000, seed = 123)
+                   iter = 2000, seed = 123)
 a_glm$coefficients
 hdi(a_glm)
 
@@ -311,10 +314,10 @@ followup_data$game_meta %<>%
          end_time = end_time + 60*60)
 
 followup_data$game_meta %<>% 
-  mutate(testing_group = case_when(update(start_time, year=2000, month=1, mday=1) > ymd_hms("2000-01-01 08:00:00") & 
-                                     update(start_time, year=2000, month=1, mday=1) < ymd_hms("2000-01-01 11:59:59") ~ "am",
-                                   update(start_time, year=2000, month=1, mday=1) > ymd_hms("2000-01-01 18:00:00") & 
-                                     update(start_time, year=2000, month=1, mday=1) < ymd_hms("2000-01-01 21:59:59") ~ "pm", 
+  mutate(testing_group = case_when(update(start_time, year=2000, month=1, mday=1) >= ymd_hms("2000-01-01 08:00:00") & 
+                                     update(start_time, year=2000, month=1, mday=1) <= ymd_hms("2000-01-01 11:59:59") ~ "am",
+                                   update(start_time, year=2000, month=1, mday=1) >= ymd_hms("2000-01-01 18:00:00") & 
+                                     update(start_time, year=2000, month=1, mday=1) <= ymd_hms("2000-01-01 21:59:59") ~ "pm", 
                                    .default = "none"))
 
 # Grouping by chronotype
@@ -322,7 +325,7 @@ followup_data$game_meta %<>%
 # late: MEQ < 42 , MSFSC > 05:30am
 
 followup_data$questionnaire %<>% 
-  mutate(chronotype = case_when(meq_sumScore > 58 & hm(mctq_MSF_SC) < hm("02:30") ~ "early",
+  mutate(chronotype = case_when(meq_sumScore > 58 & hm(mctq_MSF_SC) <= hm("02:30") ~ "early",
                                 meq_sumScore < 42 & hm(mctq_MSF_SC) > hm("05:30") ~ "late",
                                 is.na(mctq_MSF_SC) ~ "NA",
                                 .default = "intermediate"))
@@ -337,7 +340,9 @@ circadian_data_fu <- list(followup_data$demographics, followup_data$game_meta, f
                             testing_group == "pm" & chronotype == "late" ~ "pm_late",
                             .default = "none")) %>% 
   filter(group != "none") %>% 
-  select(subj_id, age, gender, shaps_sumScore, dars_sumScore, aes_sumScore, 
+  select(subj_id, age, gender, 
+         psych_neurdev, psych_neurdev_condition, antidepressant,
+         shaps_sumScore, dars_sumScore, aes_sumScore, 
          meq_sumScore, mctq_MSF_SC, findrisc_sumScore, bmi_result, ipaq_sumScore, 
          mdd_past, mdd_current, mdd_recurrent, testing_group, chronotype, group)
 
@@ -351,155 +356,329 @@ circadian_data_all <- circadian_data %>%
 circadian_data_all %>% 
   janitor::tabyl(group)
 
-### (5) Fit models with followup data -----------------------------------------------
+# Sub-sample sizes
+circadian_data_all %>% 
+  janitor::tabyl(chronotype, testing_group) %>% 
+  chisq.test()
 
-### AM testing, early chronoytpe
-# no new participants -> use fit from above 
+### (5) Sample demographics -----------------------------------------------
 
-params_am_early_all <- params_am_early
+# Sample size and age
+circadian_data_all %>% 
+  group_by(chronotype) %>% 
+  summarise(N=n(), N_perc = (n()/197)*100, 
+            mean_age = mean(age), sd_age = sd(age), min_age = min(age), max_age = max(age))
 
-### PM testing, early chronoytpe
-# no new participants -> use fit from above 
+var.test(age ~ chronotype, 
+       data = circadian_data_all)
+t.test(age ~ chronotype, 
+       data = circadian_data_all, var.equal = TRUE)
 
-task_pm_early_all <- bind_rows(main_data$modelling_data %>% 
-                             filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "pm_early"]), 
-                           followup_data$modelling_data %>% 
-                             filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "pm_early"]))
+# Gender
+circadian_data_all %>% 
+  filter(chronotype == "early") %>% 
+  janitor::tabyl(gender)
+
+circadian_data_all %>% 
+  filter(chronotype == "late") %>% 
+  janitor::tabyl(gender)
+
+circadian_data_all %>% 
+  janitor::tabyl(chronotype, gender) %>% 
+  chisq.test()
+
+# Psychiatric comorbidity
+
+circadian_data_all %>% 
+  group_by(chronotype) %>% 
+  summarise(N_psych_neurdev = sum(psych_neurdev), 
+            N_psych_neurdev_prec = sum(psych_neurdev)/n()*100)
+
+var.test(psych_neurdev ~ chronotype, 
+         data = circadian_data_all)
+t.test(psych_neurdev ~ chronotype, 
+       data = circadian_data_all, var.equal = TRUE)
+
+
+# Depression
+circadian_data_all %>% 
+  filter(chronotype == "early") %>%
+  . $psych_neurdev_condition %>% 
+  str_subset("Major depressive disorder|depression|Depression|MDD|mdd") %>% 
+  length()
+(4 / 102)*100
+
+circadian_data_all %>% 
+  filter(chronotype == "late") %>%
+  . $psych_neurdev_condition %>% 
+  str_subset("Major depressive disorder|depression|Depression|MDD|mdd") %>% 
+  length()
+(22 / 95)*100
+
+matrix(data = c(4, 22, 98, 73), nrow = 2, 
+       dimnames = list(c("early", "late"),
+                       c("dep_yes", "dep_no"))) %>% 
+  chisq.test()
+
+# Anxiety
+circadian_data_all %>% 
+  filter(chronotype == "early") %>%
+  . $psych_neurdev_condition %>% 
+  str_subset("Social anxiety disorder|Generalised anxiety disorder") %>% 
+  length()
+(18 / 102)*100
+
+circadian_data_all %>% 
+  filter(chronotype == "late") %>%
+  . $psych_neurdev_condition %>% 
+  str_subset("Social anxiety disorder|Generalised anxiety disorder") %>% 
+  length()
+(24 / 95)*100
+
+matrix(data = c(18, 24, 84, 71), nrow = 2, 
+       dimnames = list(c("early", "late"),
+                       c("anx_yes", "anx_no"))) %>% 
+  chisq.test()
+
+# Anti-depressant use
+circadian_data_all %>% 
+  group_by(chronotype) %>% 
+  summarise(N_antid = sum(antidepressant, na.rm = TRUE), 
+            N_antid_prec = (sum(antidepressant, na.rm = TRUE)/n())*100)
+
+matrix(data = c(9, 26, 93, 69), nrow = 2, 
+       dimnames = list(c("early", "late"),
+                       c("anti_d_yes", "anti_d_no"))) %>% 
+  chisq.test()
+
+# Psychiatric questionnaire measures
+circadian_data_all %>% 
+  group_by(chronotype) %>% 
+  summarise(shaps_mean = mean(shaps_sumScore), shaps_sd = sd(shaps_sumScore), 
+            dars_mean = mean(dars_sumScore), dars_sd = sd(dars_sumScore), 
+            aes_mean = mean(aes_sumScore), aes_sd = sd(aes_sumScore))
+
+var.test(shaps_sumScore ~ chronotype, 
+         data = circadian_data_all)
+t.test(shaps_sumScore ~ chronotype, 
+       data = circadian_data_all, var.equal = TRUE)
+
+var.test(dars_sumScore ~ chronotype, 
+         data = circadian_data_all)
+t.test(dars_sumScore ~ chronotype, 
+       data = circadian_data_all, var.equal = TRUE)
+
+var.test(aes_sumScore ~ chronotype, 
+         data = circadian_data_all)
+t.test(aes_sumScore ~ chronotype, 
+       data = circadian_data_all, var.equal = TRUE)
+
+circadian_data_all %>% 
+  filter(chronotype == "early") %>% 
+  janitor::tabyl(mdd_current)
+
+circadian_data_all %>% 
+  filter(chronotype == "late") %>% 
+  janitor::tabyl(mdd_current)
+
+
+matrix(data = c(3, 15, 99, 80), nrow = 2, 
+       dimnames = list(c("early", "late"),
+                       c("mdd_d_yes", "mdd_d_no"))) %>% 
+  chisq.test()
+
+
+
+### (6) Fit models with followup data -----------------------------------------------
 
 if(run_models){
-model_dat_pm_early_all <- model_preprocessing(raw_data = task_pm_early_all,
-                                          retest = FALSE,
-                                          subjs = unique(task_pm_early_all$subjID), 
-                                          n_subj = length(unique(task_pm_early_all$subjID)), 
-                                          t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_pm_early_all)[,2], 
-                                          t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_pm_early_all)[,2]))
-
-# Parabolic model, 3 parameters
-  m3_para_fit_pm_early_all <- m3_parabolic_stan_model$sample(
+  
+  ### AM testing, early chronotype
+  task_am_early_all <- bind_rows(main_data$modelling_data %>% 
+                                   filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "am_early"]), 
+                                 followup_data$modelling_data %>% 
+                                   filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "am_early"]))
+  
+  model_dat_am_early_all <- model_preprocessing(raw_data = task_am_early_all,
+                                                retest = FALSE,
+                                                subjs = unique(task_am_early_all$subjID), 
+                                                n_subj = length(unique(task_am_early_all$subjID)), 
+                                                t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_am_early_all)[,2], 
+                                                t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_am_early_all)[,2]))
+  
+  m3_para_am_early_all_fit <- m3_parabolic_stan_model$sample(
+    data = model_dat_am_early_all, 
+    refresh = 0, chains = 4, parallel_chains = 4,
+    iter_warmup = 2000, iter_sampling = 6000, 
+    adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
+    output_dir = NULL
+  )
+  # Convergence check
+  m3_para_am_early_all_check <- convergence_check(m3_para_am_early_all_fit, 
+                                              params = c("kE", "kR", "a"), 
+                                              Rhat = TRUE, ess = TRUE,
+                                              trace_plot = TRUE, rank_hist = FALSE)
+  m3_para_am_early_all_check$trace_plot
+  saveRDS(list(m3_para_am_early_all_check$Rhat, m3_para_am_early_all_check$ess), 
+          here::here("data/model_fits/chrono_followup/m3_para_am_early_all_check.RDS"))
+  # LOO for model comparisons
+  m3_para_am_early_all_loo <- m3_para_am_early_all_fit$loo()
+  saveRDS(m3_para_am_early_all_loo, here::here("data/model_fits/chrono_followup/m3_para_am_early_all_loo.RDS"))
+  # Parameter estimates
+  m3_para_am_early_all_params <- get_params(subj_id = unique(task_am_early_all$subjID), 
+                                        model_fit = m3_para_am_early_all_fit, 
+                                        n_subj = length(unique(task_am_early_all$subjID)), 
+                                        n_params = 3, 
+                                        param_names = c("kE", "kR", "a"))
+  saveRDS(m3_para_am_early_all_params, here::here("data/model_fits/chrono_followup/m3_para_am_early_all_params.RDS"))
+  
+  
+  ### PM testing, early chronotype
+  task_pm_early_all <- bind_rows(main_data$modelling_data %>% 
+                                   filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "pm_early"]), 
+                                 followup_data$modelling_data %>% 
+                                   filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "pm_early"]))
+  
+  model_dat_pm_early_all <- model_preprocessing(raw_data = task_pm_early_all,
+                                                retest = FALSE,
+                                                subjs = unique(task_pm_early_all$subjID), 
+                                                n_subj = length(unique(task_pm_early_all$subjID)), 
+                                                t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_pm_early_all)[,2], 
+                                                t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_pm_early_all)[,2]))
+  
+  m3_para_pm_early_all_fit <- m3_parabolic_stan_model$sample(
     data = model_dat_pm_early_all, 
-    refresh = 0, chains = 4, iter_warmup = 2000, iter_sampling = 6000, 
+    refresh = 0, chains = 4, parallel_chains = 4,
+    iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = here::here("data/model_fits/chrono_followup"), output_basename = "m3_para_mcmc_pm_early_all"
+    output_dir = NULL, output_basename = "m3_para_pm_early_all_mcmc"
   )
-  saveRDS(m3_para_fit_pm_early_all, here::here("data/model_fits/chrono_followup/m3_para_fit_pm_early_all.RDS"))
-} else {
-  m3_para_fit_pm_early_all <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_fit_pm_early_fu.RDS"))
-}
-
-# Convergence check 
-m3_para_check_pm_early_all <- convergence_check(m3_para_fit_pm_early_all, 
-                                            params = c("kE", "kR", "a"), 
-                                            Rhat = TRUE, ess = TRUE,
-                                            trace_plot = TRUE, rank_hist = FALSE)
-m3_para_check_pm_early_all$Rhat
-m3_para_check_pm_early_all$ess
-m3_para_check_pm_early_all$trace_plot
-
-# Get individual parameters
-
-params_pm_early_all <- get_params(subj_id = unique(task_pm_early_all$subjID), 
-                              model_fit = m3_para_fit_pm_early_all, 
-                              n_subj = length(unique(task_pm_early_all$subjID)), 
-                              n_params = 3, 
-                              param_names = c("kE", "kR", "a"))
-
-
-### AM testing, late chronoytpe
-# no new participants -> use fit from above 
-
-task_am_late_all <- bind_rows(main_data$modelling_data %>% 
-                                filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "am_late"]), 
-                              followup_data$modelling_data %>% 
-                                filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "am_late"]))
-
-if(run_models){
-model_dat_am_late_all <- model_preprocessing(raw_data = task_am_late_all,
-                                             retest = FALSE,
-                                             subjs = unique(task_am_late_all$subjID), 
-                                             n_subj = length(unique(task_am_late_all$subjID)), 
-                                             t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_am_late_all)[,2], 
-                                             t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_am_late_all)[,2]))
-
-# Parabolic model, 3 parameters
-  m3_para_fit_am_late_all <- m3_parabolic_stan_model$sample(
+  # Convergence check
+  m3_para_pm_early_all_check <- convergence_check(m3_para_pm_early_all_fit, 
+                                                  params = c("kE", "kR", "a"), 
+                                                  Rhat = TRUE, ess = TRUE,
+                                                  trace_plot = TRUE, rank_hist = FALSE)
+  m3_para_pm_early_all_check$trace_plot
+  saveRDS(list(m3_para_pm_early_all_check$Rhat, m3_para_pm_early_all_check$ess), 
+          here::here("data/model_fits/chrono_followup/m3_para_pm_early_all_check.RDS"))
+  # LOO for model comparisons
+  m3_para_pm_early_all_loo <- m3_para_pm_early_all_fit$loo()
+  saveRDS(m3_para_pm_early_all_loo, here::here("data/model_fits/chrono_followup/m3_para_pm_early_all_loo.RDS"))
+  # Parameter estimates
+  m3_para_pm_early_all_params <- get_params(subj_id = unique(task_pm_early_all$subjID), 
+                                            model_fit = m3_para_pm_early_all_fit, 
+                                            n_subj = length(unique(task_pm_early_all$subjID)), 
+                                            n_params = 3, 
+                                            param_names = c("kE", "kR", "a"))
+  saveRDS(m3_para_pm_early_all_params, here::here("data/model_fits/chrono_followup/m3_para_pm_early_all_params.RDS"))
+  
+  
+  ### AM testing, late chronotype
+  task_am_late_all <- bind_rows(main_data$modelling_data %>% 
+                                   filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "am_late"]), 
+                                 followup_data$modelling_data %>% 
+                                   filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "am_late"]))
+  
+  model_dat_am_late_all <- model_preprocessing(raw_data = task_am_late_all,
+                                                retest = FALSE,
+                                                subjs = unique(task_am_late_all$subjID), 
+                                                n_subj = length(unique(task_am_late_all$subjID)), 
+                                                t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_am_late_all)[,2], 
+                                                t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_am_late_all)[,2]))
+  
+  m3_para_am_late_all_fit <- m3_parabolic_stan_model$sample(
     data = model_dat_am_late_all, 
-    refresh = 0, chains = 4, iter_warmup = 2000, iter_sampling = 6000, 
+    refresh = 0, chains = 4, parallel_chains = 4,
+    iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = here::here("data/model_fits/chrono_followup"), output_basename = "m3_para_mcmc_am_late_all"
+    output_dir = NULL, output_basename = "m3_para_am_late_all_mcmc"
   )
-  saveRDS(m3_para_fit_am_late_all, here::here("data/model_fits/chrono_followup/m3_para_fit_am_late_all.RDS"))
-} else {
-  m3_para_fit_am_late_all <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_fit_am_late_fu.RDS"))
-}
-
-# Convergence check 
-m3_para_check_am_late_all <- convergence_check(m3_para_fit_am_late_all, 
-                                               params = c("kE", "kR", "a"), 
-                                               Rhat = TRUE, ess = TRUE,
-                                               trace_plot = TRUE, rank_hist = FALSE)
-m3_para_check_am_late_all$Rhat
-m3_para_check_am_late_all$ess
-m3_para_check_am_late_all$trace_plot
-
-# Get individual parameters
-
-params_am_late_all <- get_params(subj_id = unique(task_am_late_all$subjID), 
-                                 model_fit = m3_para_fit_am_late_all, 
-                                 n_subj = length(unique(task_am_late_all$subjID)), 
-                                 n_params = 3, 
-                                 param_names = c("kE", "kR", "a"))
-
-
-### PM testing, late chronoytpe
-# no new participants -> use fit from above 
-
-task_pm_late_all <- bind_rows(main_data$modelling_data %>% 
-                                filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "pm_late"]), 
-                              followup_data$modelling_data %>% 
-                                filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "pm_late"]))
-
-if(run_models){
-model_dat_pm_late_all <- model_preprocessing(raw_data = task_pm_late_all,
-                                             retest = FALSE,
-                                             subjs = unique(task_pm_late_all$subjID), 
-                                             n_subj = length(unique(task_pm_late_all$subjID)), 
-                                             t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_pm_late_all)[,2], 
-                                             t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_pm_late_all)[,2]))
-
-# Parabolic model, 3 parameters
-  m3_para_fit_pm_late_all <- m3_parabolic_stan_model$sample(
+  # Convergence check
+  m3_para_am_late_all_check <- convergence_check(m3_para_am_late_all_fit, 
+                                                  params = c("kE", "kR", "a"), 
+                                                  Rhat = TRUE, ess = TRUE,
+                                                  trace_plot = TRUE, rank_hist = FALSE)
+  m3_para_am_late_all_check$trace_plot
+  saveRDS(list(m3_para_am_late_all_check$Rhat, m3_para_am_late_all_check$ess), 
+          here::here("data/model_fits/chrono_followup/m3_para_am_late_all_check.RDS"))
+  # LOO for model comparisons
+  m3_para_am_late_all_loo <- m3_para_am_late_all_fit$loo()
+  saveRDS(m3_para_am_late_all_loo, here::here("data/model_fits/chrono_followup/m3_para_am_late_all_loo.RDS"))
+  # Parameter estimates
+  m3_para_am_late_all_params <- get_params(subj_id = unique(task_am_late_all$subjID), 
+                                            model_fit = m3_para_am_late_all_fit, 
+                                            n_subj = length(unique(task_am_late_all$subjID)), 
+                                            n_params = 3, 
+                                            param_names = c("kE", "kR", "a"))
+  saveRDS(m3_para_am_late_all_params, here::here("data/model_fits/chrono_followup/m3_para_am_late_all_params.RDS"))
+  
+  
+  ### PM testing, late chronotype
+  task_pm_late_all <- bind_rows(main_data$modelling_data %>% 
+                                  filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "pm_late"]), 
+                                followup_data$modelling_data %>% 
+                                  filter(subjID %in% circadian_data_all$subj_id[circadian_data_all$group == "pm_late"]))
+  
+  model_dat_pm_late_all <- model_preprocessing(raw_data = task_pm_late_all,
+                                               retest = FALSE,
+                                               subjs = unique(task_pm_late_all$subjID), 
+                                               n_subj = length(unique(task_pm_late_all$subjID)), 
+                                               t_subjs = aggregate(trial ~ subjID, FUN = max, data = task_pm_late_all)[,2], 
+                                               t_max = max(aggregate(trial ~ subjID, FUN = max, data = task_pm_late_all)[,2]))
+  
+  m3_para_pm_late_all_fit <- m3_parabolic_stan_model$sample(
     data = model_dat_pm_late_all, 
-    refresh = 0, chains = 4, iter_warmup = 2000, iter_sampling = 6000, 
+    refresh = 0, chains = 4, parallel_chains = 4,
+    iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = here::here("data/model_fits/chrono_followup"), output_basename = "m3_para_mcmc_pm_late_all"
+    output_dir = NULL, output_basename = "m3_para_pm_late_all_mcmc"
   )
-  saveRDS(m3_para_fit_pm_late_all, here::here("data/model_fits/chrono_followup/m3_para_fit_pm_late_all.RDS"))
+  # Convergence check
+  m3_para_pm_late_all_check <- convergence_check(m3_para_pm_late_all_fit, 
+                                                 params = c("kE", "kR", "a"), 
+                                                 Rhat = TRUE, ess = TRUE,
+                                                 trace_plot = TRUE, rank_hist = FALSE)
+  m3_para_pm_late_all_check$trace_plot
+  saveRDS(list(m3_para_pm_late_all_check$Rhat, m3_para_pm_late_all_check$ess), 
+          here::here("data/model_fits/chrono_followup/m3_para_pm_late_all_check.RDS"))
+  # LOO for model comparisons
+  m3_para_pm_late_all_loo <- m3_para_pm_late_all_fit$loo()
+  saveRDS(m3_para_pm_late_all_loo, here::here("data/model_fits/chrono_followup/m3_para_pm_late_all_loo.RDS"))
+  # Parameter estimates
+  m3_para_pm_late_all_params <- get_params(subj_id = unique(task_pm_late_all$subjID), 
+                                           model_fit = m3_para_pm_late_all_fit, 
+                                           n_subj = length(unique(task_pm_late_all$subjID)), 
+                                           n_params = 3, 
+                                           param_names = c("kE", "kR", "a"))
+  saveRDS(m3_para_pm_late_all_params, here::here("data/model_fits/chrono_followup/m3_para_pm_late_all_params.RDS"))
+  
 } else {
-  m3_para_fit_pm_late_all <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_fit_pm_late_fu.RDS"))
+  # AM early
+  m3_para_am_early_all_check <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_early_all_check.RDS"))
+  m3_para_am_early_all_loo <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_early_all_loo.RDS"))
+  m3_para_am_early_all_params <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_early_all_params.RDS"))
+  
+  # PM early
+  m3_para_pm_early_all_check <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_early_all_check.RDS"))
+  m3_para_pm_early_all_loo <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_early_all_loo.RDS"))
+  m3_para_pm_early_all_params <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_early_all_params.RDS"))
+  
+  # AM late
+  m3_para_am_late_all_check <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_late_all_check.RDS"))
+  m3_para_am_late_all_loo <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_late_all_loo.RDS"))
+  m3_para_am_late_all_params <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_am_late_all_params.RDS"))
+  
+  # PM late
+  m3_para_pm_late_all_check <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_late_all_check.RDS"))
+  m3_para_pm_late_all_loo <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_late_all_loo.RDS"))
+  m3_para_pm_late_all_params <- readRDS(here::here("data/model_fits/chrono_followup/m3_para_pm_late_all_params.RDS"))
 }
-
-# Convergence check 
-m3_para_check_pm_late_all <- convergence_check(m3_para_fit_pm_late_all, 
-                                               params = c("kE", "kR", "a"), 
-                                               Rhat = TRUE, ess = TRUE,
-                                               trace_plot = TRUE, rank_hist = FALSE)
-m3_para_check_pm_late_all$Rhat
-m3_para_check_pm_late_all$ess
-m3_para_check_pm_late_all$trace_plot
-
-# Get individual parameters
-
-params_pm_late_all <- get_params(subj_id = unique(task_pm_late_all$subjID), 
-                                 model_fit = m3_para_fit_pm_late_all, 
-                                 n_subj = length(unique(task_pm_late_all$subjID)), 
-                                 n_params = 3, 
-                                 param_names = c("kE", "kR", "a"))
 
 
 ### Merge to one dataset for analyses
 
-params_data_all <- bind_rows(params_am_early_all$individual_params, params_pm_early_all$individual_params, 
-                         params_am_late_all$individual_params, params_pm_late_all$individual_params) %>%
+params_data_all <- bind_rows(m3_para_am_early_all_params$individual_params, m3_para_pm_early_all_params$individual_params, 
+                             m3_para_am_late_all_params$individual_params, m3_para_pm_late_all_params$individual_params) %>%
   pivot_wider(names_from = parameter, 
               values_from = c(estimate:hdi_upper)) %>% 
   # add scales mean parameter estimates for Bayesian GLMs
@@ -512,43 +691,221 @@ circadian_data_all %<>%
             by = c("subj_id" = "subj_id")) 
 
 
-### (6) Run GLMs -----------------------------------------------
+### (6) Run GLMs with followup data -----------------------------------------------
 
 # Effort sensitivity
 kE_glm <- stan_glm(estimate_kE_scaled ~ chronotype * testing_group + age + gender, 
                    data = circadian_data_all, 
-                         iter = 40000, seed = 101)
+                   iter = 2000, seed = 123)
 kE_glm$coefficients
 hdi(kE_glm)
 
 # Reward sensitivity
 kR_glm <- stan_glm(estimate_kR_scaled ~ chronotype * testing_group + age + gender, 
                    data = circadian_data_all, 
-                         iter = 40000, seed = 102)
+                   iter = 2000, seed = 123)
 kR_glm$coefficients
 hdi(kR_glm)
 
 # Choice bias
 a_glm <- stan_glm(estimate_a_scaled ~ chronotype * testing_group + age + gender, 
                   data = circadian_data_all, 
-                   iter = 40000, seed = 103)
+                  iter = 2000, seed = 123)
 a_glm$coefficients
 hdi(a_glm)
-a_glm_r2 <- bayes_R2(a_glm)
-median(a_glm_r2)
 
 # Follow up GLMs on interaction
 a_glm_early <- stan_glm(estimate_a_scaled ~ testing_group + age + gender, 
                   data = circadian_data_all %>% filter(chronotype == "early"), 
-                  iter = 40000, seed = 103)
+                  iter = 2000, seed = 123)
 a_glm_early$coefficients
 hdi(a_glm_early)
 
 a_glm_late <- stan_glm(estimate_a_scaled ~ testing_group + age + gender, 
                   data = circadian_data_all %>% filter(chronotype == "late"), 
-                  iter = 40000, seed = 103)
+                  iter = 2000, seed = 123)
 a_glm_late$coefficients
 hdi(a_glm_late)
+
+
+### (7) Run GLMs with SHAPS, DARS, and AES -----------------------------------------------
+
+# first, scale SHAPS, DARS, and AES to be between 0 and 1 as well
+circadian_data_all %<>% 
+  mutate(shaps_sumScore = rescale(shaps_sumScore)) %>% 
+  mutate(dars_sumScore = rescale(dars_sumScore)) %>% 
+  mutate(aes_sumScore = rescale(aes_sumScore))
+
+
+# shaps
+a_shaps_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + age + gender, 
+                        data = circadian_data_all, 
+                        iter = 40000, seed = 123)
+a_shaps_glm$coefficients
+hdi(a_shaps_glm)
+a_shaps_glm_r2 <- bayes_R2(a_shaps_glm)
+median(a_shaps_glm_r2)
+# effect: more anhedonia predicts lower choice bias
+
+# dars
+a_dars_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + age + gender, 
+                       data = circadian_data_all, 
+                       iter = 40000, seed = 123)
+a_dars_glm$coefficients
+hdi(a_dars_glm)
+# effect: more anhedonia predicts lower choice bias
+
+# aes
+a_aes_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + age + gender, 
+                      data = circadian_data_all, 
+                      iter = 40000, seed = 123)
+a_aes_glm$coefficients
+hdi(a_aes_glm)
+# effect: more apathy predicts lower choice bias
+
+
+### (8) Plotting -----------------------------------------------
+
+if(plotting){
+  
+  # Plot reward sensitivity
+  kR_circadian_plot <- raincloud_plot(dat = circadian_data_all, title = "", 
+                                  xlab = "", ylab = "Reward sensitivity", 
+                                  predictor_var = "testing_group", outcome_var = "estimate_kR_scaled", 
+                                  predictor_tick_lab = c("AM testing", "PM testing"), col = c(color_pal[1], color_pal[2]), 
+                                  include_grouping = TRUE, group_var = "chronotype", legendlab = "Chronotype",
+                                  scale_seq = c(0, 1, 0.25)) + 
+    theme(legend.position = "none", 
+          axis.text.x = element_text(size = 10)) +
+    ggtitle("Reward sensitivity")
+  
+  kR_main_circadian_plot <- raincloud_plot(dat = circadian_data_all, title = "", 
+                                      xlab = "", ylab = "Reward sensitivity", 
+                                      predictor_var = "chronotype", outcome_var = "estimate_kR_scaled", 
+                                      predictor_tick_lab = c("early chronotyoe", "late chronotype"), col = c(color_pal[1], color_pal[2]), 
+                                      include_grouping = FALSE, 
+                                      scale_seq = c(0, 1, 0.25)) + 
+    theme(legend.position = "none", 
+          axis.text.x = element_text(size = 10))
+  
+  pdf(file = here::here("output/figures/R_plots/kR_main_circadian_plot_ppt.pdf"),  
+      width = 10 * 0.393701, # The width of the plot in cm (transformed to inches)
+      height = 8.8 * 0.393701) # The height of the plot in cm (transformed to inches)
+  par(mar=c(0,4,0.5,0.5))
+  
+  kR_main_circadian_plot
+  
+  dev.off()
+  
+  # Plot choice bias
+  
+  a_main_circadian_plot <- raincloud_plot(dat = circadian_data_all, title = "", 
+                                     xlab = "", ylab = "Choice bias", 
+                                     predictor_var = "chronotype", outcome_var = "estimate_a_scaled", 
+                                     predictor_tick_lab = c("early chronotyoe", "late chronotype"), col = c(color_pal[1], color_pal[2]), 
+                                     include_grouping = FALSE, legendlab = "Chronotype",
+                                     scale_seq = c(0, 1, 0.25)) + 
+    theme(legend.position = "none", 
+          axis.text.x = element_text(size = 15)) +
+    ggtitle("Choice bias")
+  
+  
+  
+  pdf(file = here::here("output/figures/R_plots/a_main_circadian_plot_ppt.pdf"),  
+      width = 15.5 * 0.393701, # The width of the plot in cm (transformed to inches)
+      height = 9 * 0.393701) # The height of the plot in cm (transformed to inches)
+  par(mar=c(0,4,0.5,0.5))
+  
+  a_main_circadian_plot
+  
+  dev.off()
+  
+  # Plot choice bias for interaction effect
+  
+
+  a_circadian_plot <- raincloud_plot(dat = circadian_data_all, title = "", 
+                                     xlab = "", ylab = "Choice bias", 
+                                     predictor_var = "testing_group", outcome_var = "estimate_a_scaled", 
+                                     predictor_tick_lab = c("AM testing", "PM testing"), col = c(color_pal[1], color_pal[2]), 
+                                     include_grouping = TRUE, group_var = "chronotype", legendlab = "Chronotype",
+                                     scale_seq = c(0, 1, 0.25)) + 
+    theme(legend.position = "none", 
+          axis.text.x = element_text(size = 10)) +
+    ggtitle("Choice bias")
+  
+
+  pdf(file = here::here("output/figures/R_plots/a_circadian_plot_interact_ppt.pdf"),  
+      width = 18.5 * 0.393701, # The width of the plot in cm (transformed to inches)
+      height = 10.5 * 0.393701) # The height of the plot in cm (transformed to inches)
+  par(mar=c(0,4,0.5,0.5))
+  
+  a_circadian_plot
+  
+  dev.off()
+  
+  # Plot choice bias, early only
+  a_circadian_early_plot <- raincloud_plot(dat = circadian_data_all %>% filter(chronotype == "early"), title = "", 
+                                     xlab = "", ylab = "Choice bias", 
+                                     predictor_var = "testing_group", outcome_var = "estimate_a_scaled", 
+                                     predictor_tick_lab = c("AM testing", "PM testing"), col = c(color_pal[1], color_pal[1]), 
+                                     include_grouping = FALSE,
+                                     scale_seq = c(0, 1, 0.25)) + 
+    theme(legend.position = "none", 
+          axis.text.x = element_text(size = 15))
+  
+  pdf(file = here::here("output/figures/R_plots/a_circadian_plot_interact_early_ppt.pdf"),  
+      width = 18.5 * 0.393701, # The width of the plot in cm (transformed to inches)
+      height = 10.5 * 0.393701) # The height of the plot in cm (transformed to inches)
+  par(mar=c(0,4,0.5,0.5))
+  
+  a_circadian_early_plot
+  
+  dev.off()
+  
+  
+  # Plot choice bias, late only
+  a_circadian_late_plot <- raincloud_plot(dat = circadian_data_all %>% filter(chronotype == "late"), title = "", 
+                                           xlab = "", ylab = "Choice bias", 
+                                           predictor_var = "testing_group", outcome_var = "estimate_a_scaled", 
+                                           predictor_tick_lab = c("AM testing", "PM testing"), col = c(color_pal[2], color_pal[2]), 
+                                           include_grouping = FALSE, 
+                                           scale_seq = c(0, 1, 0.25)) + 
+    theme(legend.position = "none", 
+          axis.text.x = element_text(size = 15))
+  
+  pdf(file = here::here("output/figures/R_plots/a_circadian_plot_interact_late_ppt.pdf"),  
+      width = 18.5 * 0.393701, # The width of the plot in cm (transformed to inches)
+      height = 10.5 * 0.393701) # The height of the plot in cm (transformed to inches)
+  par(mar=c(0,4,0.5,0.5))
+  
+  a_circadian_late_plot
+  
+  dev.off()
+  
+  
+  # paper plot
+  
+  pdf(file = here::here("output/figures/R_plots/circadian_plot.pdf"),  
+      width = 9, # The width of the plot in cm (transformed to inches)
+      height = 6) # The height of the plot in cm (transformed to inches)
+  par(mar=c(0,4,0.5,0.5))
+  
+  ggarrange(a_circadian_plot,kR_circadian_plot,
+            ncol = 1, nrow = 2)
+  
+  dev.off()
+  
+  
+  
+  
+}  
+
+
+
+
+
+
+
 
 # Plot 
 raincloud_plot(dat = circadian_data_all, title = "", 
@@ -580,40 +937,6 @@ raincloud_plot(dat = circadian_data_all %>% filter(chronotype == "late"), title 
 
 
 
-### (7) Run GLMs with SHAPS, DARS, and AES -----------------------------------------------
-
-# first, scale SHAPS, DARS, and AES to be between 0 and 1 as well
-circadian_data_all %<>% 
-  mutate(shaps_sumScore = rescale(shaps_sumScore)) %>% 
-  mutate(dars_sumScore = rescale(dars_sumScore)) %>% 
-  mutate(aes_sumScore = rescale(aes_sumScore))
-
-
-# shaps
-a_shaps_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + age + gender, 
-                        data = circadian_data_all, 
-                  iter = 40000, seed = 123)
-a_shaps_glm$coefficients
-hdi(a_shaps_glm)
-a_shaps_glm_r2 <- bayes_R2(a_shaps_glm)
-median(a_shaps_glm_r2)
-# effect: more anhedonia predicts lower choice bias
-
-# dars
-a_dars_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + age + gender, 
-                       data = circadian_data_all, 
-                        iter = 40000, seed = 123)
-a_dars_glm$coefficients
-hdi(a_dars_glm)
-# effect: more anhedonia predicts lower choice bias
-
-# aes
-a_aes_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + age + gender, 
-                      data = circadian_data_all, 
-                        iter = 40000, seed = 123)
-a_aes_glm$coefficients
-hdi(a_aes_glm)
-# effect: more apathy predicts lower choice bias
 
 # Plot
 
@@ -687,23 +1010,6 @@ a_aes_circadian_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + chronotype * 
 a_aes_circadian_glm$coefficients
 hdi(a_aes_circadian_glm)
 # effect: more apathy predicts lower choice bias
-
-# Plot 
-
-a_shaps_circadian_data <- tibble("effect" = 1:7,
-                                 "mean" = a_shaps_circadian_glm$coefficients[c(2:4, 7:10)], 
-                                 "hdi_lower" = hdi(a_shaps_circadian_glm)[c(2:4, 7:10),3], 
-                                 "hdi_upper" = hdi(a_shaps_circadian_glm)[c(2:4, 7:10),4])
-
-
-ggplot(a_shaps_circadian_data, aes(x=effect, y=mean)) + 
-  geom_pointrange(aes(ymin=hdi_lower, ymax=hdi_upper))
-
-
-a_shaps_circadian_data
-a_shaps_circadian_glm$coefficients
-hdi(a_shaps_circadian_glm)
-
 
 ## Psychiatric effects on choic bias in early and late separately 
 

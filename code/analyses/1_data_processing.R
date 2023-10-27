@@ -102,6 +102,10 @@ meta_data_files <- list.files(path = here::here("data/raw_data/main_study"),
 meta_data <- lapply(meta_data_files, read.csv)
 meta_data <- data.table::rbindlist(meta_data) %>% as_tibble()
 
+meta_data %<>% 
+  rowwise() %>% 
+  mutate("Participant.id" = id_shuffle(Participant.id)) 
+
 ### (2) Parse data -------------------------------------------------------------
 
 online_data <- parsing_fun(file = all_jatos_dat, 
@@ -174,71 +178,25 @@ online_data$questionnaire[online_data$questionnaire$subj_id == "c4d62a3d35",]$ip
 
 ## BMI - unrealistic values?
 
-# height: 
-which(online_data$questionnaire$bmi_response_1 < 150 |
-        online_data$questionnaire$bmi_response_1 > 200)
+# Make completely unrealistic values NA
+online_data$questionnaire %<>% 
+  rowwise() %>%
+  mutate(across(bmi_response_1:bmi_result, ~ case_when(is.infinite(bmi_result) ~ NA,
+                                                       is.nan(bmi_result) ~ NA,
+                                                       bmi_result <= 12 ~ NA, 
+                                                       bmi_result >= 200 ~ NA, 
+                                                       bmi_response_1 > 250 ~ NA,
+                                                       bmi_response_1 < 140 ~ NA,
+                                                       bmi_response_2 < 20 ~ NA,
+                                                       bmi_response_2 > 600 ~ NA,
+                                                       .default = .))) %>%
+  # turn rows_df back into normal tibble
+  ungroup()
 
-online_data$questionnaire$bmi_response_raw_1[69]
-online_data$questionnaire$bmi_response_raw_1[127]
-online_data$questionnaire$bmi_response_raw_1[149]
-online_data$questionnaire$bmi_response_raw_1[362]
-online_data$questionnaire$bmi_response_raw_1[387]
-# 58.8 -> 5.8
-online_data$questionnaire$bmi_response_raw_1[387] <- "5.8 feet inches"
-online_data$questionnaire$bmi_response_1[387] <- 5 * 30.48 + 8 * 2.54
-online_data$questionnaire$bmi_result[387] <- online_data$questionnaire$bmi_response_2[387] / ((online_data$questionnaire$bmi_response_1[387]/100)^2)
-
-online_data$questionnaire$bmi_response_raw_1[473]
-online_data$questionnaire$bmi_response_raw_1[681]
-online_data$questionnaire$bmi_response_raw_1[725]
-# 5.100 -> 5.10
-online_data$questionnaire$bmi_response_raw_1[725] <- "5.10 feet inches"
-online_data$questionnaire$bmi_response_1[725] <- 5 * 30.48 + 10 * 2.54
-online_data$questionnaire$bmi_result[725] <- online_data$questionnaire$bmi_response_2[725] / ((online_data$questionnaire$bmi_response_1[725]/100)^2)
-
-online_data$questionnaire$bmi_response_raw_1[821]
-online_data$questionnaire$bmi_response_raw_1[944]
-# 15.11 -> 5.11
-online_data$questionnaire$bmi_response_raw_1[944] <- "5.11 feet inches"
-online_data$questionnaire$bmi_response_1[944] <- 5 * 30.48 + 11 * 2.54
-online_data$questionnaire$bmi_result[944] <- online_data$questionnaire$bmi_response_2[944] / ((online_data$questionnaire$bmi_response_1[944]/100)^2)
-
-
-# weight: 
-which(online_data$questionnaire$bmi_response_2 < 30 |
-        online_data$questionnaire$bmi_response_2 > 150)
-
-online_data$questionnaire$bmi_response_raw_2[9]
-online_data$questionnaire$bmi_response_raw_2[49]
-online_data$questionnaire$bmi_response_raw_2[111]
-online_data$questionnaire$bmi_response_raw_2[531]
-online_data$questionnaire$bmi_response_raw_2[533]
-online_data$questionnaire$bmi_response_raw_2[646] 
-# 0 stone pounds -> exclude
-online_data$questionnaire$bmi_response_raw_2[646] <- NA
-online_data$questionnaire$bmi_response_2[646] <- NA
-online_data$questionnaire$bmi_response_raw_1[646] <- NA
-online_data$questionnaire$bmi_response_1[646] <- NA
-online_data$questionnaire$bmi_result[646] <- NA
-
-online_data$questionnaire$bmi_response_raw_2[656]
-online_data$questionnaire$bmi_response_raw_2[661]
-online_data$questionnaire$bmi_response_raw_2[744]
-online_data$questionnaire$bmi_response_raw_2[829]
-# 145.5 stone pounds -> 14.5
-online_data$questionnaire$bmi_response_raw_2[829] <- "14.5 stone pounds"
-online_data$questionnaire$bmi_response_2[829] <- 14 * 6.350 + 5 * 0.4536
-online_data$questionnaire$bmi_result[829] <- online_data$questionnaire$bmi_response_2[829] / ((online_data$questionnaire$bmi_response_1[829]/100)^2)
-
-online_data$questionnaire$bmi_response_raw_2[922]
-# 140.0 stone pounds -> 14.0
-online_data$questionnaire$bmi_response_raw_2[922] <- "14.0 stone pounds"
-online_data$questionnaire$bmi_response_2[922] <- 14 * 6.350 + 0 * 0.4536
-online_data$questionnaire$bmi_result[922] <- online_data$questionnaire$bmi_response_2[922] / ((online_data$questionnaire$bmi_response_1[922]/100)^2)
-
-# any unrealistic BMIs left?
-min(online_data$questionnaire$bmi_result, na.rm = TRUE)
-max(online_data$questionnaire$bmi_result, na.rm = TRUE)
+# Look at participants that have a BMI under or over 2sd from sample
+online_data$questionnaire %>% 
+  filter(bmi_result > (26.87537 + 3 * 6.270634)) %>% 
+  select(bmi_response_1, bmi_response_2, bmi_result) %>% print(n = Inf)
 
 ## IPAQ
 
@@ -283,7 +241,7 @@ for(subj in seq_along(online_data$questionnaire$subj_id)){
 # (corrected MSF after midday)
 
 MCTQ_exclusion <- online_data$questionnaire[period_to_seconds(hm(online_data$questionnaire$mctq_MSF_SC)) > 12*60*60,1]
-online_data$questionnaire[online_data$questionnaire$subj_id %in% MCTQ_exclusion,
+online_data$questionnaire[online_data$questionnaire$subj_id %in% MCTQ_exclusion$subj_id,
                           grep("mctq", colnames(online_data$questionnaire))] <- NA
 
 ### (5) Pre-registered data exclusion ------------------------------------------
@@ -397,7 +355,7 @@ online_data$questionnaire <- online_data$questionnaire[!online_data$questionnair
 setwd(here::here())
 saveRDS(online_data, "data/processed_data/main_study/online_data.RDS")
 saveRDS(online_data_excl, "data/processed_data/main_study/online_data_excl.RDS")
-write.csv(meta_data, "data/processed_data/main_study/online_meta_data.csv")
+saveRDS(meta_data, "data/processed_data/main_study/online_meta_data.RDS")
 
 
 ##> Circadian follow-up data ------------------------------------------------------

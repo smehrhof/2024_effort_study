@@ -51,12 +51,16 @@ id_shuffle <- function(x){
 #@ x: Variable vector
 
 rescale <- function(x){
-  (x-min(x)) / (max(x)-min(x))
+  (x-min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE)-min(x, na.rm = TRUE))
 }
 
 
+## Normalize negatively skewed data ---------------------------------------------------------
+#@ x: Variable vector
 
-
+norm_neg_skew <- function(x){
+  (1 - sqrt(1 - x))
+}
 
 
 
