@@ -18,6 +18,7 @@ setwd(here::here())
 
 # source functions
 source("github/effort-study/code/functions/helper_funs.R")
+source("github/effort-study/code/functions/plot_funs.R")
 source("github/effort-study/code/functions/model_preprocess_fun.R")
 source("github/effort-study/code/functions/model_convergence_check_fun.R")
 source("github/effort-study/code/functions/parameter_estimates_fun.R")
@@ -772,336 +773,39 @@ if(plotting){
   kR_circadian_plot <- raincloud_plot(dat = circadian_data_all, title = "", 
                                   xlab = "", ylab = "Reward sensitivity", 
                                   predictor_var = "testing_group", outcome_var = "estimate_kR_scaled", 
-                                  predictor_tick_lab = c("AM testing", "PM testing"), col = c(color_pal[1], color_pal[2]), 
+                                  predictor_tick_lab = c("morning testing", "evening testing"), col = c(color_pal[1], color_pal[2]), 
                                   include_grouping = TRUE, group_var = "chronotype", legendlab = "Chronotype",
                                   scale_seq = c(0, 1, 0.25)) + 
     theme(legend.position = "none", 
-          axis.text.x = element_text(size = 10)) +
-    ggtitle("Reward sensitivity")
+          axis.text.x = element_text(size = 10)) 
   
-  kR_main_circadian_plot <- raincloud_plot(dat = circadian_data_all, title = "", 
-                                      xlab = "", ylab = "Reward sensitivity", 
-                                      predictor_var = "chronotype", outcome_var = "estimate_kR_scaled", 
-                                      predictor_tick_lab = c("early chronotyoe", "late chronotype"), col = c(color_pal[1], color_pal[2]), 
-                                      include_grouping = FALSE, 
-                                      scale_seq = c(0, 1, 0.25)) + 
-    theme(legend.position = "none", 
-          axis.text.x = element_text(size = 10))
-  
-  pdf(file = here::here("output/figures/R_plots/kR_main_circadian_plot_ppt.pdf"),  
-      width = 10 * 0.393701, # The width of the plot in cm (transformed to inches)
-      height = 8.8 * 0.393701) # The height of the plot in cm (transformed to inches)
+  pdf(file = here::here("output/figures/R_plots/circadian_kR.pdf"),  
+      width = 7, # The width of the plot in cm (transformed to inches)
+      height = 3) # The height of the plot in cm (transformed to inches)
   par(mar=c(0,4,0.5,0.5))
   
-  kR_main_circadian_plot
+  kR_circadian_plot
   
   dev.off()
   
   # Plot choice bias
-  
-  a_main_circadian_plot <- raincloud_plot(dat = circadian_data_all, title = "", 
-                                     xlab = "", ylab = "Choice bias", 
-                                     predictor_var = "chronotype", outcome_var = "estimate_a_scaled", 
-                                     predictor_tick_lab = c("early chronotyoe", "late chronotype"), col = c(color_pal[1], color_pal[2]), 
-                                     include_grouping = FALSE, legendlab = "Chronotype",
-                                     scale_seq = c(0, 1, 0.25)) + 
-    theme(legend.position = "none", 
-          axis.text.x = element_text(size = 15)) +
-    ggtitle("Choice bias")
-  
-  
-  
-  pdf(file = here::here("output/figures/R_plots/a_main_circadian_plot_ppt.pdf"),  
-      width = 15.5 * 0.393701, # The width of the plot in cm (transformed to inches)
-      height = 9 * 0.393701) # The height of the plot in cm (transformed to inches)
-  par(mar=c(0,4,0.5,0.5))
-  
-  a_main_circadian_plot
-  
-  dev.off()
-  
-  # Plot choice bias for interaction effect
-  
-
   a_circadian_plot <- raincloud_plot(dat = circadian_data_all, title = "", 
                                      xlab = "", ylab = "Choice bias", 
                                      predictor_var = "testing_group", outcome_var = "estimate_a_scaled", 
-                                     predictor_tick_lab = c("AM testing", "PM testing"), col = c(color_pal[1], color_pal[2]), 
+                                     predictor_tick_lab = c("morning testing", "evening testing"), col = c(color_pal[1], color_pal[2]), 
                                      include_grouping = TRUE, group_var = "chronotype", legendlab = "Chronotype",
                                      scale_seq = c(0, 1, 0.25)) + 
     theme(legend.position = "none", 
-          axis.text.x = element_text(size = 10)) +
-    ggtitle("Choice bias")
+          axis.text.x = element_text(size = 10)) 
   
-
-  pdf(file = here::here("output/figures/R_plots/a_circadian_plot_interact_ppt.pdf"),  
-      width = 18.5 * 0.393701, # The width of the plot in cm (transformed to inches)
-      height = 10.5 * 0.393701) # The height of the plot in cm (transformed to inches)
+  pdf(file = here::here("output/figures/R_plots/circadian_a.pdf"),  
+      width = 7, # The width of the plot in cm (transformed to inches)
+      height = 3) # The height of the plot in cm (transformed to inches)
   par(mar=c(0,4,0.5,0.5))
   
   a_circadian_plot
   
   dev.off()
   
-  # Plot choice bias, early only
-  a_circadian_early_plot <- raincloud_plot(dat = circadian_data_all %>% filter(chronotype == "early"), title = "", 
-                                     xlab = "", ylab = "Choice bias", 
-                                     predictor_var = "testing_group", outcome_var = "estimate_a_scaled", 
-                                     predictor_tick_lab = c("AM testing", "PM testing"), col = c(color_pal[1], color_pal[1]), 
-                                     include_grouping = FALSE,
-                                     scale_seq = c(0, 1, 0.25)) + 
-    theme(legend.position = "none", 
-          axis.text.x = element_text(size = 15))
+}
   
-  pdf(file = here::here("output/figures/R_plots/a_circadian_plot_interact_early_ppt.pdf"),  
-      width = 18.5 * 0.393701, # The width of the plot in cm (transformed to inches)
-      height = 10.5 * 0.393701) # The height of the plot in cm (transformed to inches)
-  par(mar=c(0,4,0.5,0.5))
-  
-  a_circadian_early_plot
-  
-  dev.off()
-  
-  
-  # Plot choice bias, late only
-  a_circadian_late_plot <- raincloud_plot(dat = circadian_data_all %>% filter(chronotype == "late"), title = "", 
-                                           xlab = "", ylab = "Choice bias", 
-                                           predictor_var = "testing_group", outcome_var = "estimate_a_scaled", 
-                                           predictor_tick_lab = c("AM testing", "PM testing"), col = c(color_pal[2], color_pal[2]), 
-                                           include_grouping = FALSE, 
-                                           scale_seq = c(0, 1, 0.25)) + 
-    theme(legend.position = "none", 
-          axis.text.x = element_text(size = 15))
-  
-  pdf(file = here::here("output/figures/R_plots/a_circadian_plot_interact_late_ppt.pdf"),  
-      width = 18.5 * 0.393701, # The width of the plot in cm (transformed to inches)
-      height = 10.5 * 0.393701) # The height of the plot in cm (transformed to inches)
-  par(mar=c(0,4,0.5,0.5))
-  
-  a_circadian_late_plot
-  
-  dev.off()
-  
-  
-  # paper plot
-  
-  pdf(file = here::here("output/figures/R_plots/circadian_plot.pdf"),  
-      width = 9, # The width of the plot in cm (transformed to inches)
-      height = 6) # The height of the plot in cm (transformed to inches)
-  par(mar=c(0,4,0.5,0.5))
-  
-  ggarrange(a_circadian_plot,kR_circadian_plot,
-            ncol = 1, nrow = 2)
-  
-  dev.off()
-  
-  
-  
-  
-}  
-
-
-
-
-
-
-
-
-# Plot 
-raincloud_plot(dat = circadian_data_all, title = "", 
-               xlab = "Testing time", ylab = "Parameter estimate", 
-               predictor_var = "testing_group", outcome_var = "estimate_kR", 
-               predictor_tick_lab = c("Morning", "Evening"), col = c(color_pal[1], color_pal[2]), 
-               include_grouping = TRUE, group_var = "chronotype", legendlab = "Chronotype") + 
-  theme(legend.position = "none")
-
-raincloud_plot(dat = circadian_data_all, title = "", 
-               xlab = "Testing time", ylab = "Parameter estimate", 
-               predictor_var = "testing_group", outcome_var = "estimate_a", 
-               predictor_tick_lab = c("Morning", "Evening"), col = c(color_pal[1], color_pal[2]), 
-               include_grouping = TRUE, group_var = "chronotype", legendlab = "Chronotype") + 
-  theme(legend.position = "none")
-
-
-raincloud_plot(dat = circadian_data_all %>% filter(chronotype == "early"), title = "", 
-               xlab = "Testing time", ylab = "Parameter estimate", 
-               predictor_var = "testing_group", outcome_var = "estimate_a", 
-               predictor_tick_lab = c("Morning", "Evening"), col = c(color_pal[1], color_pal[1]), 
-               include_grouping = FALSE)
-
-raincloud_plot(dat = circadian_data_all %>% filter(chronotype == "late"), title = "", 
-               xlab = "Testing time", ylab = "Parameter estimate", 
-               predictor_var = "testing_group", outcome_var = "estimate_a", 
-               predictor_tick_lab = c("Morning", "Evening"), col = c(color_pal[2], color_pal[2]), 
-               include_grouping = FALSE)
-
-
-
-
-# Plot
-
-a_shaps_plot <- ggplot(circadian_data_all, 
-                       aes(x = shaps_sumScore, y = estimate_a)) + 
-  geom_point(color = color_pal[3], alpha = 0.5, size = 1.25) +
-  geom_smooth(method = glm, color = color_pal[3], fill = color_pal[3]) +
-  scale_y_continuous(breaks = seq(-8, 8, 4), limits = c(-8, 8)) +
-  scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
-                     labels = c("low\nanhedonia", "high\nanhedonia")) +
-  labs(y = "Choice bias") +
-  theme(axis.title = element_text(size = 18),
-        axis.title.y = element_text(size = 20),
-        axis.text.x = element_text(size = 16),
-        axis.title.x = element_blank(),
-        axis.text.y = element_text(size = 16),
-        axis.ticks.x = element_blank()) 
-
-a_dars_plot <- ggplot(circadian_data_all, aes(x = dars_sumScore, y = estimate_a)) + 
-  geom_point(color = color_pal[5], alpha = 0.5, size = 1.25) +
-  geom_smooth(method = glm, color = color_pal[5], fill = color_pal[5]) +
-  scale_y_continuous(breaks = seq(-8, 8, 4), limits = c(-8, 8)) +
-  scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
-                     labels = c("high\nanhedonia", "low\nanhedonia")) +
-  labs(y = "Choice bias") +
-  theme(axis.title = element_text(size = 18),
-        axis.title.y = element_text(size = 20),
-        axis.text.x = element_text(size = 16),
-        axis.title.x = element_blank(),
-        axis.text.y = element_text(size = 16),
-        axis.ticks.x = element_blank()) 
-
-a_aes_plot <- ggplot(circadian_data_all, aes(x = aes_sumScore, y = estimate_a)) + 
-  geom_point(color = color_pal[1], alpha = 0.5, size = 1.25) +
-  geom_smooth(method = glm, color = color_pal[1], fill = color_pal[1]) +
-  scale_y_continuous(breaks = seq(-8, 8, 4), limits = c(-8, 8)) +
-  scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
-                     labels = c("high\napathy", "low\napathy")) +
-  labs(y = "Choice bias") +
-  theme(axis.title = element_text(size = 18),
-        axis.title.y = element_text(size = 20),
-        axis.text.x = element_text(size = 16),
-        axis.title.x = element_blank(),
-        axis.text.y = element_text(size = 16),
-        axis.ticks.x = element_blank()) 
-
-## Add chronotype and time of day to the GLMs that show effects
-
-# shaps
-a_shaps_circadian_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + chronotype * testing_group + age + gender, 
-                                  data = circadian_data_all, 
-                        iter = 40000, seed = 123)
-a_shaps_circadian_glm$coefficients
-hdi(a_shaps_circadian_glm)
-a_shaps_circadian_glm_r2 <- bayes_R2(a_shaps_circadian_glm)
-median(a_shaps_circadian_glm_r2)
-# effect: more anhedonia predicts lower choice bias
-
-# dars
-a_dars_circadian_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + chronotype * testing_group + age + gender, 
-                                 data = circadian_data_all, 
-                                  iter = 40000, seed = 123)
-a_dars_circadian_glm$coefficients
-hdi(a_dars_circadian_glm)
-# effect: more anhedonia predicts lower choice bias
-
-# aes
-a_aes_circadian_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + chronotype * testing_group + age + gender, 
-                                data = circadian_data_all, 
-                      iter = 40000, seed = 123)
-a_aes_circadian_glm$coefficients
-hdi(a_aes_circadian_glm)
-# effect: more apathy predicts lower choice bias
-
-## Psychiatric effects on choic bias in early and late separately 
-
-# shaps early
-a_shaps_early_circadian_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + testing_group + age + gender, 
-                                  data = circadian_data_all %>% filter(chronotype == "early"), 
-                                  iter = 40000, seed = 123)
-a_shaps_early_circadian_glm$coefficients
-hdi(a_shaps_early_circadian_glm)
-a_shaps_early_circadian_glm_r2 <- bayes_R2(a_shaps_early_circadian_glm)
-median(a_shaps_early_circadian_glm_r2)
-# effect: more anhedonia predicts lower choice bias
-
-
-# shaps late
-a_shaps_late_circadian_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + testing_group + age + gender, 
-                                        data = circadian_data_all %>% filter(chronotype == "late"), 
-                                        iter = 40000, seed = 123)
-a_shaps_late_circadian_glm$coefficients
-hdi(a_shaps_late_circadian_glm)
-a_shaps_late_circadian_glm_r2 <- bayes_R2(a_shaps_late_circadian_glm)
-median(a_shaps_late_circadian_glm_r2)
-
-# dars early
-a_dars_early_circadian_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + testing_group + age + gender, 
-                                        data = circadian_data_all %>% filter(chronotype == "early"), 
-                                        iter = 40000, seed = 123)
-a_dars_early_circadian_glm$coefficients
-hdi(a_dars_early_circadian_glm)
-a_dars_early_circadian_glm_r2 <- bayes_R2(a_dars_early_circadian_glm)
-median(a_dars_early_circadian_glm_r2)
-# effect: more anhedonia predicts lower choice bias
-
-# dars late
-a_dars_late_circadian_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + testing_group + age + gender, 
-                                       data = circadian_data_all %>% filter(chronotype == "late"), 
-                                       iter = 40000, seed = 123)
-a_dars_late_circadian_glm$coefficients
-hdi(a_dars_late_circadian_glm)
-a_dars_late_circadian_glm_r2 <- bayes_R2(a_dars_late_circadian_glm)
-median(a_dars_late_circadian_glm_r2)
-
-
-# aes early
-a_aes_early_circadian_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + testing_group + age + gender, 
-                                       data = circadian_data_all %>% filter(chronotype == "early"), 
-                                       iter = 40000, seed = 123)
-a_aes_early_circadian_glm$coefficients
-hdi(a_aes_early_circadian_glm)
-a_aes_early_circadian_glm_r2 <- bayes_R2(a_aes_early_circadian_glm)
-median(a_aes_early_circadian_glm_r2)
-# effect: more anhedonia predicts lower choice bias
-
-# aes late
-a_aes_late_circadian_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + testing_group + age + gender, 
-                                      data = circadian_data_all %>% filter(chronotype == "late"), 
-                                      iter = 40000, seed = 123)
-a_aes_late_circadian_glm$coefficients
-hdi(a_aes_late_circadian_glm)
-a_aes_late_circadian_glm_r2 <- bayes_R2(a_aes_late_circadian_glm)
-median(a_aes_late_circadian_glm_r2)
-
-
-a_shaps_early_plot <- ggplot(circadian_data_all %>% filter(chronotype == "early"), 
-                       aes(x = shaps_sumScore, y = estimate_a)) + 
-  geom_point(color = color_pal[3], alpha = 0.5, size = 1.25) +
-  geom_smooth(method = glm, color = color_pal[3], fill = color_pal[3]) +
-  scale_y_continuous(breaks = seq(-8, 8, 4), limits = c(-8, 8)) +
-  scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
-                     labels = c("low\nanhedonia", "high\nanhedonia")) +
-  labs(y = "Choice bias", title = "Early chronotypes") +
-  theme(axis.title = element_text(size = 18),
-        axis.title.y = element_text(size = 20),
-        axis.text.x = element_text(size = 16),
-        axis.title.x = element_blank(),
-        axis.text.y = element_text(size = 16),
-        axis.ticks.x = element_blank()) 
-
-a_shaps_late_plot <- ggplot(circadian_data_all %>% filter(chronotype == "late"), 
-                             aes(x = shaps_sumScore, y = estimate_a)) + 
-  geom_point(color = color_pal[5], alpha = 0.5, size = 1.25) +
-  geom_smooth(method = glm, color = color_pal[5], fill = color_pal[5]) +
-  scale_y_continuous(breaks = seq(-8, 8, 4), limits = c(-8, 8)) +
-  scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
-                     labels = c("low\nanhedonia", "high\nanhedonia")) +
-  labs(y = "Choice bias", title = "Late chronotypes") +
-  theme(axis.title = element_text(size = 18),
-        axis.title.y = element_text(size = 20),
-        axis.text.x = element_text(size = 16),
-        axis.title.x = element_blank(),
-        axis.text.y = element_text(size = 16),
-        axis.ticks.x = element_blank()) 
-
-ggarrange(a_shaps_early_plot, a_shaps_late_plot, 
-          ncol = 2, nrow = 1)

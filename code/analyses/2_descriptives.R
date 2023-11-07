@@ -133,6 +133,23 @@ main_data$game_meta %>%
   summarise(mean_cali = mean(clicking_calibration), sd_cali = sd(clicking_calibration), 
             min_cali = min(clicking_calibration), max_cali = max(clicking_calibration))
 
+# Change in clicking calibration
+main_data$game %>%
+  filter(phase == "calibration") %>% 
+  group_by(subj_id) %>% 
+  summarise(max_pre = max(clicks[1:3]),
+            max_post = max(clicks[4])) %>% 
+  summarise(mean_cali_chane = mean(max_pre - max_post),
+            sd_cali_chane = sd(max_pre - max_post), 
+            min_cali_chane = min(max_pre - max_post), 
+            max_cali_chane = max(max_pre - max_post))
+
+# Participants reports of decision-making process
+main_data$questionnaire %>% 
+  filter(game_response_2 == 1) %>% 
+  select(game_response_text_2) %>% 
+  print(n = 100)
+
 # Excluded sample
 
 # AM testing
@@ -165,6 +182,7 @@ main_data_excl$game_meta %>%
 main_data_excl$game_meta %>%
   summarise(mean_cali = mean(clicking_calibration), sd_cali = sd(clicking_calibration), 
             min_cali = min(clicking_calibration), max_cali = max(clicking_calibration))
+
 
 ### (4) Questionnaire measures -----------------------------------------------
 

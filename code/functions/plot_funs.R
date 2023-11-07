@@ -370,50 +370,31 @@ ppc_plots <- function(ppc_dat,
 
 
 ## Parameter recovery plot -----------------------------------------------------
-# @ underlying_parameters: data frame with parameter values used for simulation
-# @ recovered_parameters: data frame with parameter estimates
-# @ parameters: parameters to plot
-# @ col: colors to use
+# @ recovery_data: tibble with underlying and recovered parameter values 
+# @ plot_title: title for plot
+# @ col: color to use
 
-params_recovery_plot <- function(underlying_parameters, 
-                                 recovered_parameters, 
-                                 parameters,
+params_recovery_plot <- function(recovery_data,
+                                 plot_title,
                                  col){
   
-  params_recovery_plots <- list()
+
+  params_recovery_plot <- ggplot(recovery_data, 
+                                 aes(x=real, y=recovered, 
+                                     color=col)) +
+    geom_point(size=2, alpha=0.5, color = col) + 
+    geom_abline(linetype = 3) +
+    ylab("Recovered parameter estimates") + xlab("Underlying parameters") +
+    labs(title = plot_title) +
+    theme(plot.title = element_text(size = 10),
+          plot.subtitle = element_text(size = 10),
+          axis.title = element_text(size = 10),
+          axis.text.x = element_text(size = 10),
+          axis.text.y = element_text(size = 10),
+          legend.title = element_text(size = 10),
+          legend.text = element_text(size = 10),
+          legend.position = "none") 
   
-  for(i in seq_along(parameters)){
-    
-    if(parameters[i] == "kE"){
-      plot_title <- expression("Effort sensitivity" ~ beta[E])
-    } else if(parameters[i] == "kR"){
-      plot_title <- expression("Reward sensitivity" ~ beta[R])
-    } else if(parameters[i] == "a"){
-      plot_title <- expression("Choice bias" ~ alpha)
-    }
-    
-    recovery_dat <- data.frame("real" = underlying_parameters[,parameters[i]], 
-                               "recovered" = recovered_parameters[,parameters[i]])
-    
-    params_recovery_plots[[parameters[i]]] <- ggplot(recovery_dat, 
-                                                     aes(x=real, y=recovered, 
-                                                         color=col[i])) +
-      geom_point(size=2, alpha=0.5, color = col[i]) + 
-      geom_abline(linetype = 3) +
-      ylab("Recovered parametere estimates") + xlab("Underlying parameters") +
-      labs(title = plot_title,
-           subtitle = bquote(~r==.(round(cor(recovery_dat[,1], recovery_dat[,2]), 3)))) +
-      theme(plot.title = element_text(size = 8),
-            plot.subtitle = element_text(size = 8),
-            axis.title = element_text(size = 6),
-            axis.text.x = element_text(size = 6),
-            axis.text.y = element_text(size = 6),
-            legend.title = element_text(size = 8),
-            legend.text = element_text(size = 8),
-            legend.position = "none") 
-
-  }
-
-  return(params_recovery_plots)
+  return(params_recovery_plot)
 }
 

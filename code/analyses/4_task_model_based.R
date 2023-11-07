@@ -3,7 +3,7 @@
 #######################################################################################
 
 ### In this script: 
-# (1) Compiling models
+# (1) Preprocess data
 # (2) Model fitting
 # (3) Convergence check
 # (4) Model comparison
@@ -36,9 +36,8 @@ model_fitting <- FALSE
 pushoverUserKey <- "uw5u2amicxd317vuitzqn88z8xfxfa"
 pushoverAPIKey <- "asp86ee11jemqhir5i1dau5cf16vrt"
 
-### (1) Compiling models -----------------------------------------------
+### (1) Preprocess data -----------------------------------------------
 
-# Preprocess data
 model_dat <- model_preprocessing(raw_data = task_data, 
                                  retest = FALSE,
                                  subjs = unique(task_data$subjID), 
@@ -71,7 +70,7 @@ if(model_fitting){
     refresh = 0, chains = 4, parallel_chains = 4, 
     iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = NULL, output_basename = "m1_para_mcmc"
+    output_dir = NULL
   )
   # Convergence check
   m1_para_check <- convergence_check(m1_para_fit, 
@@ -100,7 +99,7 @@ if(model_fitting){
     refresh = 0, chains = 4, parallel_chains = 4, 
     iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = NULL, output_basename = "m2_para_mcmc"
+    output_dir = NULL
   )
   # Convergence check
   m2_para_check <- convergence_check(m2_para_fit, 
@@ -127,7 +126,7 @@ if(model_fitting){
     refresh = 0, chains = 4,  parallel_chains = 4,
     iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = NULL, output_basename = "m3_para_mcmc"
+    output_dir = NULL
   )
   # Convergence check
   m3_para_check <- convergence_check(m3_para_fit, 
@@ -163,7 +162,7 @@ if(model_fitting){
     refresh = 0, chains = 4,  parallel_chains = 4,
     iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = NULL, output_basename = "m1_lin_mcmc"
+    output_dir = NULL
   )
   # Convergence check
   m1_lin_check <- convergence_check(m1_lin_fit, 
@@ -190,7 +189,7 @@ if(model_fitting){
     refresh = 0, chains = 4, parallel_chains = 4,
     iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = here::here("data/model_fits/main_study"), output_basename = "m2_lin_mcmc"
+    output_dir = NULL
   )
   # Convergence check
   m2_lin_check <- convergence_check(m2_lin_fit, 
@@ -216,7 +215,7 @@ if(model_fitting){
     refresh = 0, chains = 4,  parallel_chains = 4,
     iter_warmup = 2000, iter_sampling = 6000, 
     adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
-    output_dir = here::here("data/model_fits/main_study"), output_basename = "m3_lin_mcmc"
+    output_dir = NULL
   )
   # Convergence check
   m3_lin_check <- convergence_check(m3_lin_fit, 
