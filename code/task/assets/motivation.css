@@ -1,0 +1,13 @@
+#quit {
+	color: #FFFEFE;
+	font-family: "Lucida Console", "Courier New", monospace;
+	font-weight: bold;
+	font-size: 1.8em;
+	cursor:pointer;
+	padding: 0;
+	margin: 0.25em 0 0 0.75em;
+	position:absolute;
+	bottom: 0.25em;
+}
+
+

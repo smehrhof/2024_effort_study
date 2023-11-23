@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Decision-making game</title>
+
+        <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        </style>     
+        <link rel="stylesheet" type="text/css" href="assets/motivation.css" />  
+        <script src="assets/jquery-2.0.3.min.js" type="text/javascript"></script>  
+        <script src="assets/phaser.3.24.1.min.js" type="text/javascript"></script>  
+        <script src="assets/blob.js" type="text/javascript"></script>
+        <script src="assets/canvas-to-blob.js" type="text/javascript"></script>
+        <script src="assets/filesaver.js" type="text/javascript"></script>
+        <script src="assets/embed.js" type="text/javascript"></script>
+        <script src="jatos.js"></script>   
+
+        <script src="scenes/instructions.js" type="text/javascript"></script>
+        <script src="scenes/calibration.js" type="text/javascript"></script>
+        <script src="scenes/offer.js" type="text/javascript"></script>
+        <script src="scenes/countdown.js" type="text/javascript"></script>
+        <script src="scenes/game.js" type="text/javascript"></script>
+        <script src="scenes/feedback.js" type="text/javascript"></script>
+        <script src="scenes/quiz.js" type="text/javascript"></script>
+
+    </head>
+    <body>
+        <div id="game"></div>
+        <p><script>jatos.addAbortButton();</script></p>
+        <script>
+
+            var phaserConfig = {
+                type: Phaser.AUTO,
+                parent: "game",
+                width: window.innerWidth,
+                height: window.innerHeight,
+                backgroundColor: "#5DACD8",
+                disableContextMenu: true,
+                physics: {
+                default: 'arcade',
+                scale: {
+                    mode: Phaser.Scale.FIT,
+                },
+                arcade: {
+                    gravity: { y: 0 },
+                    debug: false
+                }
+            },
+                scene: [ SceneInstructions, SceneCalibration, SceneOffer, SceneCountdown, SceneGame, SceneFeedback, SceneQuiz ]
+            };
+
+            var game = new Phaser.Game(phaserConfig);
+            
+            // to scale to subjects screen
+            globalThis.scaleFactor = ((window.innerWidth / 800) + (window.innerHeight / 600)) / 2;
+            
+            window.addEventListener('resize', function (event) {
+                game.scale.resize(window.innerWidth, window.innerHeight);
+                globalThis.scaleFactor = ((window.innerWidth / 800) + (window.innerHeight / 600)) / 2;
+            }, false);
+
+            // data
+            globalThis.data = {};
+            var dataKeys = ['start', 'subjID', 'date', 'phase', 'trial', 'trialType', 'offerEffort', 'offerReward', 'choice', 'rt', 'clicks', 'goalClicks', 'points']
+            dataKeys.forEach(k => {
+                globalThis.data[k] = [];
+            });
+
+            globalThis.data.start.push('This is the start of the game');
+            globalThis.data.subjID.push(Math.floor(Math.random() * (2000000 - 0 + 1)) + 0);
+            globalThis.data.date.push(new Date());
+
+            globalThis.instructionCount = 0;
+
+            // trials
+            globalThis.trialsArray = [[0, 1, 2, 3, 4, 5, 6, 7, 8,
+                                       9, 10, 11, 12, 13, 14, 15,
+                                       0, 1, 2, 3, 4, 5, 6, 7, 8,
+                                       9, 10, 11, 12, 13, 14, 15,
+                                       0, 1, 2, 3, 4, 5, 6, 7, 8,
+                                       9, 10, 11, 12, 13, 14, 15,
+                                       0, 1, 2, 3, 4, 5, 6, 7, 8,
+                                       9, 10, 11, 12, 13, 14, 15],
+                                      [[1, 1],[1, 2],[1, 3],[1, 4],
+                                      [2, 1],[2, 2],[2, 3],[2, 4],
+                                      [3, 1],[3, 2],[3, 3],[3, 4],
+                                      [4, 1],[4, 2],[4, 3],[4, 4]],
+                                      [[Phaser.Utils.Array.GetRandom(['e', 'r'])], [Phaser.Utils.Array.GetRandom(['e', 'r'])],
+                                      [Phaser.Utils.Array.GetRandom(['e', 'r'])], [Phaser.Utils.Array.GetRandom(['e', 'r'])],
+                                      [Phaser.Utils.Array.GetRandom(['e', 'r'])], [Phaser.Utils.Array.GetRandom(['e', 'r'])],
+                                      [Phaser.Utils.Array.GetRandom(['e', 'r'])], [Phaser.Utils.Array.GetRandom(['e', 'r'])],
+                                      [Phaser.Utils.Array.GetRandom(['e', 'r'])], [Phaser.Utils.Array.GetRandom(['e', 'r'])],
+                                      [Phaser.Utils.Array.GetRandom(['e', 'r'])], [Phaser.Utils.Array.GetRandom(['e', 'r'])],
+                                      [Phaser.Utils.Array.GetRandom(['e', 'r'])], [Phaser.Utils.Array.GetRandom(['e', 'r'])],
+                                      [Phaser.Utils.Array.GetRandom(['e', 'r'])], [Phaser.Utils.Array.GetRandom(['e', 'r'])]]]
+
+            globalThis.countOccurrences = (arr, val) => arr.reduce((a, v) => (v === val ? a + 1 : a), 0);
+
+        </script>
+    </body>
+</html>
