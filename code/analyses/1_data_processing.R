@@ -14,10 +14,9 @@
 # (8) Save cleaned data
 ##> Circadian follow-up data
 # (9) Read-in and parse data
-# (11) Questionnaire data processing 
-# (12) Pre-registered data exclusion
-# (13)
-# (14) Save cleaned data
+# (10) Questionnaire data processing 
+# (11) Pre-registered data exclusion
+# (12) Save cleaned data
 
 # Set working directory
 here::i_am("github/effort-study/code/analyses/1_data_processing.R")
