@@ -2,47 +2,80 @@
 
 Sara Mehrhof & Camilla Nord
 
-## Analyses
+# Data
 
-All code used for our main study analyses can be found in the `/analyses` directory. Analyses for the test-restes reliability study can be found in the `/test_retest` directory. Some scripts may call functions and stan scripts found in the `/functions` and `/stan` directories.  
+All data used in our study can be found in the `/data` directory.
+
+### Processed data
+
+The cleaned, raw data resulting from our study can be found in the `/processed_data` directory. Data processing includes cleaning of individual questionnaires according to questionnaire manuals and applying pre-registered exclusion criteria.   
+
+### Model fit
+
+An empty folder structure for model fit objects produced by scripts in the `/analyses` directory. 
+
+# Code
+
+All code used to run analyses for our study can be found in the `/code` directory. Some scripts may call supporting functions and stan scripts found in the `/functions` and `/stan` directories.  
+
+### Analyses
+
+All code used for our main study analyses can be found in the `/analyses` directory. 
 The analyses steps are structured as follows:
 
-#### 0 Simulation study
-
-Code used for a simulation study to validate the models included in our model space. Presented in the Supplementary material 1. 
-
-#### 1 Data processing
-
-Processing raw data for both the main data collection and the follow up data collection, including cleaning of individual questionnaires according to questionnaire manuals and applying exclusion criteria. 
-
-#### 2 Descriptives
+#### 1 Descriptives
 
 Descriptive data analyses including demographics, psychiatric comorbidities, task metrics, and questionnaire measures. 
 
-#### 3 Task - model agnostic
+#### 2 Task - model agnostic
 
 Model agnostic analyses of task data. 
 
-#### 4 Task - model based
+#### 3 Task - model based
 
-Model based analyses of task data, includes model fitting, checking for model convergence, model validation, and posterior predictive checks.
+Model based analyses of task data, includes model fitting, checking for model convergence, model comparison, model validation, and posterior predictive checks.
 
-#### 5 Main analyses
+#### 4 Main analyses
 
 Main analyses as described in the first pre-registration (see https://osf.io/2x3au). 
 
-#### 6 MDD HC comparison
+#### 5 MDD-HC comparison
 
 Exploratory analyses comparing subjects meeting criteria for current major depressive episode to age and gender matched healthy controls. 
 
-#### 7 Circadian analyses 
+#### 6 Circadian analyses 
 
 Main analyses investigating circadian effects, as described in the second pre-registration (see https://osf.io/y4fbe).
 
+### Test retest 
 
-## Task
+All code used for our analyses of our in person test-retest reliability study can be found in the `/test_retest` directory.  
+The analyses steps are structured as follows:
 
-Code used to run the novel, online effort expenditure task. 
+#### 1 Descriptives
+
+Descriptive data analyses including demographics and questionnaire measures. 
+
+#### 2 Task - model agnostic
+
+Model agnostic analyses of task data.
+
+#### 3 Task - model based
+
+Model based analyses of task data, includes model fitting, checking for model convergence, model comparison.
+
+#### 4 Test retest reliability
+
+Analyses of test-retest reliability, includes intra-class correlations, Pearson's correlations, and posterior predictions. 
+
+### Simulation study
+
+All code used for our simulation study can be found in the `/simulation_study` directory. Results are presented in the Supplementary material 1. 
+
+### Task
+
+All code used to run the novel, online effort expenditure task can be found in the `/task` directory.  
+
 
 
 
