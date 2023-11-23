@@ -42,12 +42,7 @@ Main analyses investigating circadian effects, as described in the second pre-re
 
 ## Task
 
-
-
-
-
-
-
+Code used to run the novel, online effort expenditure task. 
 
 
 
