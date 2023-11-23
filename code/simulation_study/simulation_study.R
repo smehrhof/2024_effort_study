@@ -9,7 +9,7 @@
 # (4) Plotting
 
 # Set working directory
-here::i_am("github/effort-study/code/analyses/0_simulation_study.R")
+here::i_am("github/effort-study/code/simulation_study/simulation_study.R")
 setwd(here::here())
 
 # source functions
