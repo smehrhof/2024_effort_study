@@ -13,7 +13,7 @@
 # (8) Run GLMs with SHAPS, DARS, and AES
 
 # Set working directory
-here::i_am("github/effort-study/code/analyses/7_circadian_analyses.R")
+here::i_am("github/effort-study/code/analyses/6_circadian_analyses.R")
 setwd(here::here())
 
 # source functions
@@ -489,7 +489,6 @@ matrix(data = c(3, 15, 99, 80), nrow = 2,
   chisq.test()
 
 
-
 ### (6) Fit models with followup data -----------------------------------------------
 
 if(run_models){
@@ -692,7 +691,7 @@ circadian_data_all %<>%
             by = c("subj_id" = "subj_id")) 
 
 
-### (6) Run GLMs with followup data -----------------------------------------------
+### (7) Run GLMs with followup data -----------------------------------------------
 
 # Effort sensitivity
 kE_glm <- stan_glm(estimate_kE_scaled ~ chronotype * testing_group + age + gender, 
@@ -729,14 +728,16 @@ a_glm_late$coefficients
 hdi(a_glm_late)
 
 
-### (7) Run GLMs with SHAPS, DARS, and AES -----------------------------------------------
+### (8) Run GLMs with SHAPS, DARS, and AES -----------------------------------------------
 
 # first, scale SHAPS, DARS, and AES to be between 0 and 1 as well
 circadian_data_all %<>% 
   mutate(shaps_sumScore = rescale(shaps_sumScore)) %>% 
   mutate(dars_sumScore = rescale(dars_sumScore)) %>% 
-  mutate(aes_sumScore = rescale(aes_sumScore))
-
+  mutate(aes_sumScore = rescale(aes_sumScore)) %>% 
+# transform aes and dars to be interpretable in the same direction as the shaps (and in line with main result reporting)
+  mutate(dars_sumScore = 1-dars_sumScore, 
+         aes_sumScore = 1-aes_sumScore)
 
 # shaps
 a_shaps_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + age + gender, 
@@ -754,6 +755,8 @@ a_dars_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + age + gender,
                        iter = 40000, seed = 123)
 a_dars_glm$coefficients
 hdi(a_dars_glm)
+a_dars_glm_r2 <- bayes_R2(a_dars_glm)
+median(a_dars_glm_r2)
 # effect: more anhedonia predicts lower choice bias
 
 # aes
@@ -762,10 +765,97 @@ a_aes_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + age + gender,
                       iter = 40000, seed = 123)
 a_aes_glm$coefficients
 hdi(a_aes_glm)
+a_aes_glm_r2 <- bayes_R2(a_aes_glm)
+median(a_aes_glm_r2)
 # effect: more apathy predicts lower choice bias
 
+# Does the effect of neuropsychiatric symptoms of choice bias change when accounting for chronotype and time?
 
-### (8) Plotting -----------------------------------------------
+# shaps
+a_shaps_chrono_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + chronotype * testing_group + age + gender , 
+                        data = circadian_data_all, 
+                        iter = 50000, seed = 123)
+a_shaps_chrono_glm$coefficients
+hdi(a_shaps_chrono_glm)
+
+# Model comparison: does chronotype and time-of-day add predictive value above and beyond shaps?
+loo_shaps <- rstanarm::loo(a_shaps_glm)
+loo_shaps_chrono <- rstanarm::loo(a_shaps_chrono_glm)
+loo_chrono <- loo(a_glm)
+loo_compare(loo_shaps, loo_shaps_chrono, loo_chrono)
+
+# R^2
+a_shaps_rsq <- bayes_R2(a_shaps_glm)
+median(a_shaps_rsq)
+a_shaps_chrono_rsq <- bayes_R2(a_shaps_chrono_glm)
+median(a_shaps_chrono_rsq)
+a_chrono_rsq <- bayes_R2(a_glm)
+median(a_chrono_rsq)
+
+# dars
+a_dars_chrono_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + chronotype * testing_group + age + gender , 
+                               data = circadian_data_all, 
+                               iter = 50000, seed = 1234)
+a_dars_chrono_glm$coefficients
+hdi(a_dars_chrono_glm)
+
+# Model comparison: does chronotype and time-of-day add predictive value above and beyond dars?
+loo_dars <- loo(a_dars_glm)
+loo_dars_chrono <- loo(a_dars_chrono_glm)
+loo_compare(loo_dars, loo_dars_chrono, loo_chrono)
+
+# R^2
+a_dars_rsq <- bayes_R2(a_dars_glm)
+median(a_dars_rsq)
+a_dars_chrono_rsq <- bayes_R2(a_dars_chrono_glm)
+median(a_dars_chrono_rsq)
+a_chrono_rsq <- bayes_R2(a_glm)
+median(a_chrono_rsq)
+
+# aes
+a_aes_chrono_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + chronotype * testing_group + age + gender , 
+                              data = circadian_data_all, 
+                              iter = 40000, seed = 123)
+a_aes_chrono_glm$coefficients
+hdi(a_aes_chrono_glm)
+
+# Model comparison: does chronotype and time-of-day add predictive value above and beyond aes?
+loo_aes <- loo(a_aes_glm)
+loo_aes_chrono <- loo(a_aes_chrono_glm)
+loo_compare(loo_aes, loo_aes_chrono, loo_chrono)
+
+# R^2
+a_aes_rsq <- bayes_R2(a_aes_glm)
+median(a_aes_rsq)
+a_aes_chrono_rsq <- bayes_R2(a_aes_chrono_glm)
+median(a_aes_chrono_rsq)
+a_chrono_rsq <- bayes_R2(a_glm)
+median(a_chrono_rsq)
+
+
+shaps_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + age + gender , 
+                    data = circadian_data_all, 
+                    iter = 40000, seed = 123)
+shaps_rsq <- bayes_R2(shaps_glm)
+median(shaps_rsq)
+dars_glm <- stan_glm(estimate_a_scaled ~ dars_sumScore + age + gender , 
+                      data = circadian_data_all, 
+                      iter = 40000, seed = 123)
+dars_rsq <- bayes_R2(dars_glm)
+median(dars_rsq)
+aes_glm <- stan_glm(estimate_a_scaled ~ aes_sumScore + age + gender , 
+                             data = circadian_data_all, 
+                             iter = 40000, seed = 123)
+aes_rsq <- bayes_R2(aes_glm)
+median(aes_rsq)
+
+shaps_dars_glm <- stan_glm(estimate_a_scaled ~ shaps_sumScore + dars_sumScore + age + gender , 
+                    data = circadian_data_all, 
+                    iter = 40000, seed = 123)
+shaps_dars_rsq <- bayes_R2(shaps_dars_glm)
+median(shaps_dars_rsq)
+
+### (9) Plotting -----------------------------------------------
 
 if(plotting){
   
@@ -790,7 +880,7 @@ if(plotting){
   
   # Plot choice bias
   a_circadian_plot <- raincloud_plot(dat = circadian_data_all, title = "", 
-                                     xlab = "", ylab = "Choice bias", 
+                                     xlab = "", ylab = "Motivational tendency", 
                                      predictor_var = "testing_group", outcome_var = "estimate_a_scaled", 
                                      predictor_tick_lab = c("morning testing", "evening testing"), col = c(color_pal[1], color_pal[2]), 
                                      include_grouping = TRUE, group_var = "chronotype", legendlab = "Chronotype",
@@ -808,3 +898,10 @@ if(plotting){
   dev.off()
   
 }
+
+
+
+
+
+
+

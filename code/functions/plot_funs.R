@@ -12,6 +12,7 @@
 task_plot <- function(task_dat, 
                       main_title = "Acceptance proportion by effort and reward level",
                       direction = "effort_by_reward", 
+                      plot_type = "bar_plot",
                       arrange_cols = 2, arrange_rows = 2){
   
   require(ggplot2)
@@ -41,29 +42,57 @@ task_plot <- function(task_dat,
   
   if(direction == "effort_by_reward"){
     rewards <- sort(unique(task_dat$amount_a))
-    for(i in 1:4){
-      
-      choicePlot[[i]] <- ggplot(data=choicesPlotDat[choicesPlotDat$amount_a == rewards[i],], 
-                                aes(x=effort_a, y=mean, fill=effort_a)) +
-        geom_bar(stat="summary", fun = "mean", alpha = 0.8) +
-        geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.2,
-                      position=position_dodge(.9)) +
-        scale_fill_manual(values=c('#E94D36','#5B9BD5','#71AB48','#FFBF00')) +
-        theme(legend.position = "none", 
-              title = element_text(size = 10),
-              axis.title = element_text(size = 10),
-              axis.text.x = element_text(size = 10),
-              axis.title.x = element_blank(),
-              axis.title.y = element_blank(),
-              axis.text.y = element_text(size = 10),
-              axis.ticks.x = element_blank()) +
-        ggtitle(paste("Reward Level ", i)) +
-        scale_x_discrete(labels = c("1", "2", "3", "4")) +
-        scale_y_continuous(breaks = c(0, 100), limits = c(0, 100)) #+
+    
+    if(plot_type == "bar_plot"){
+      for(i in 1:4){
+        choicePlot[[i]] <- ggplot(data=choicesPlotDat[choicesPlotDat$amount_a == rewards[i],], 
+                                  aes(x=effort_a, y=mean, fill=effort_a)) +
+          geom_bar(stat="summary", fun = "mean", alpha = 0.8) +
+          geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.2,
+                        position=position_dodge(.9)) +
+          scale_fill_manual(values=c('#E94D36','#5B9BD5','#71AB48','#FFBF00')) +
+          theme(legend.position = "none", 
+                title = element_text(size = 10),
+                axis.title = element_text(size = 10),
+                axis.text.x = element_text(size = 10),
+                axis.title.x = element_blank(),
+                axis.title.y = element_blank(),
+                axis.text.y = element_text(size = 10),
+                axis.ticks.x = element_blank()) +
+          ggtitle(paste("Reward Level ", i)) +
+          scale_x_discrete(labels = c("1", "2", "3", "4")) +
+          scale_y_continuous(breaks = c(0, 100), limits = c(0, 100)) #+
         #xlab("Effort Level") +
         #ylab("% Accepted (SE)") 
+      }        
+    } else {
       
-    }    
+      choicePlot <- ggplot(data=choicesPlotDat, 
+                                aes(x = effort_a, y = mean, group = amount_a)) +
+        geom_point(aes(color = amount_a, shape = amount_a), position = position_dodge(0.2), size = 2.5) +
+        geom_line(aes(color = amount_a), position = position_dodge(0.2), size = 0.75) +
+        geom_errorbar(aes(color = amount_a, ymin = mean - se, ymax = mean + se), 
+                      width = .2, position = position_dodge(0.2)) +
+        scale_color_manual(values = c('#E94D36','#5B9BD5','#71AB48','#FFBF00'), 
+                          name = "Reward \nLevel", labels = c("1", "2", "3", "4")) +
+        scale_shape_manual(values = c(15, 16, 17, 18), 
+                           name = "Reward \nLevel", labels = c("1", "2", "3", "4")) +
+        theme(legend.position = "right", 
+              title = element_text(size = 12),
+              axis.title = element_text(size = 12),
+              axis.text.x = element_text(size = 12),
+              axis.title.x = element_text(size = 12),
+              axis.title.y = element_text(size = 12),
+              axis.text.y = element_text(size = 12),
+              axis.ticks.x = element_blank()) +
+        scale_x_discrete(labels = c("1", "2", "3", "4")) +
+        scale_y_continuous(breaks = c(0, 25, 50, 75, 100), limits = c(0, 100)) +
+      xlab("Effort Level") +
+      ylab("% Accepted (SE)") 
+      
+      
+    }
+  
   } else {
     efforts <- sort(unique(task_dat$effort_a))
     for(i in 1:4){
@@ -87,20 +116,21 @@ task_plot <- function(task_dat,
     }
   }
 
-  
-  choicePlot <- ggarrange(choicePlot[[1]] + rremove("xlab"),
-                          choicePlot[[2]] + rremove("ylab") + rremove("xlab"),
-                          choicePlot[[3]], 
-                          choicePlot[[4]] + rremove("ylab"),
-                          ncol = arrange_cols, nrow = arrange_rows,
-                          common.legend = FALSE)
-  
-  choicePlot <- annotate_figure(choicePlot, 
-                                top = text_grob(main_title, 
-                                                face = "bold", size = 18),
-                                left = text_grob("% Accepted (SE)", size = 10, rot = 90),
-                                bottom = text_grob("Effort level", size = 10)
-                                )
+  if(arrange_cols != 0 | arrange_rows != 0){
+    choicePlot <- ggarrange(choicePlot[[1]] + rremove("xlab"),
+                            choicePlot[[2]] + rremove("ylab") + rremove("xlab"),
+                            choicePlot[[3]], 
+                            choicePlot[[4]] + rremove("ylab"),
+                            ncol = arrange_cols, nrow = arrange_rows,
+                            common.legend = FALSE)
+    
+    choicePlot <- annotate_figure(choicePlot, 
+                                  top = text_grob(main_title, 
+                                                  face = "bold", size = 18),
+                                  left = text_grob("% Accepted (SE)", size = 10, rot = 90),
+                                  bottom = text_grob("Effort level", size = 10)
+    )    
+  }
   
   return(choicePlot)
 } 
@@ -198,12 +228,12 @@ cum_plot <- function(dat, var_labels, title,
     labs(title = title,
          x = x_label, y = y_label) +
     ylim(y_lim) +
-    theme(plot.title = element_text(size = 8, hjust = 0.5, face = "bold"),
-          axis.title = element_text(size = 6),
-          axis.text.x = element_text(size = 6),
-          axis.text.y = element_text(size = 6),
-          legend.title = element_text(size = 8),
-          legend.text = element_text(size = 8)) 
+    theme(plot.title = element_text(size = 12, hjust = 0.5, face = "bold"),
+          axis.title = element_text(size = 12),
+          axis.text.x = element_text(size = 12),
+          axis.text.y = element_text(size = 12),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 12)) 
   
   cum_plot
 }

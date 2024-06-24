@@ -664,7 +664,7 @@ recovery_data_a <- tibble("real" = m3_para_sim$simulation_parameters$a,
                            "recovered" = m3_para_sim_params$individual_params %>% 
                              filter(parameter == "a") %>% .$estimate)
 recovery_plot_a <- params_recovery_plot(recovery_data = recovery_data_a,
-                                         plot_title = "Choice bias",
+                                         plot_title = "Motivational tendency",
                                          col = color_pal[3])
 
 # Correlation matrix between parameters

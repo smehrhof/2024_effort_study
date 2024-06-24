@@ -9,7 +9,7 @@
 # (4) Questionnaire measures
 
 # Set working directory
-here::i_am("github/effort-study/code/analyses/2_descriptives.R")
+here::i_am("github/effort-study/code/analyses/1_descriptives.R")
 setwd(here::here())
 
 # source functions
@@ -227,18 +227,54 @@ main_data$questionnaire %>%
             min_findrisc = min(findrisc_sumScore), max_findrisc = max(findrisc_sumScore)) %>% 
   print(width = Inf)
 
-# correlation matix between questionnare measures
-main_data$questionnaire %>%
+
+# Correlation matix between questionnare measures
+cor_matrix <- main_data$questionnaire %>%
   mutate(mctq_MSF_SC = period_to_seconds(hm(mctq_MSF_SC))) %>%
   select(shaps_sumScore, dars_sumScore, aes_sumScore,
          meq_sumScore, mctq_MSF_SC, bmi_result, findrisc_sumScore) %>%
+  # Standardize questionnaire data (to be between 0 and 1) 
+  mutate_all(rescale) %>%
+  # transform dars and aes to be interpretable in the same direction as the shaps (and in line with main result reporting)
+  mutate(aes_sumScore = 1-aes_sumScore, 
+         dars_sumScore = 1-dars_sumScore) %>%
+  mutate(meq_sumScore = 1-meq_sumScore) %>% 
   cor(use="pairwise.complete.obs")
 
-main_data$questionnaire %>%
+cor_p_matrix <- main_data$questionnaire %>%
   mutate(mctq_MSF_SC = period_to_seconds(hm(mctq_MSF_SC))) %>%
   select(shaps_sumScore, dars_sumScore, aes_sumScore,
          meq_sumScore, mctq_MSF_SC, bmi_result, findrisc_sumScore) %>%
-  corrplot::cor.mtest()
+  corrplot::cor.mtest() %>% 
+  .$p 
+
+cor_p_matrix <- melt(cor_p_matrix) 
+
+melted_corr_mat <- melt(cor_matrix) %>% 
+  add_column("p" = cor_p_matrix$value) %>%
+  add_column(label = case_when(.$p <= 0.05 & .$p > 0.01 ~ "*",
+                               .$p <= 0.01 & .$p > 0.001 ~ "**",
+                               .$p <= 0.001 ~ "***", 
+                               .default = ""))
+# head(melted_corr_mat)
+
+# plotting the correlation heatmap
+ggplot(data = melted_corr_mat, aes(x = Var1, y = Var2,
+                                   fill = value, label = label)) + 
+  geom_tile() +
+  geom_text() + 
+  scale_fill_gradient(low = "white", high = "#5B9BD5", limits = c(-0.1, 1)) +
+  theme(legend.position = "right",
+        plot.title = element_text(size = 13),
+        axis.title = element_blank(),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 13)) +
+  scale_x_discrete(labels = c("SHAPS", "DARS", "AES", "MEQ", "MCTQ", "BMI", "FINDRISC")) +
+  scale_y_discrete(labels = c("SHAPS", "DARS", "AES", "MEQ", "MCTQ", "BMI", "FINDRISC")) 
+  
+
 
 # Excluded sample
 

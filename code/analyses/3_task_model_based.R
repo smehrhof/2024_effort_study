@@ -7,12 +7,10 @@
 # (2) Model fitting
 # (3) Convergence check
 # (4) Model comparison
-# (5) Model validation
-# (6) Posterior predictive checks
-# (7) Individual parameter estimation 
+# (5) Posterior predictive checks
 
 # Set working directory
-here::i_am("github/effort-study/code/analyses/4_task_model_based.R")
+here::i_am("github/effort-study/code/analyses/3_task_model_based.R")
 setwd(here::here())
 
 # source functions
@@ -35,6 +33,11 @@ model_fitting <- FALSE
 # pushoverr
 pushoverUserKey <- "uw5u2amicxd317vuitzqn88z8xfxfa"
 pushoverAPIKey <- "asp86ee11jemqhir5i1dau5cf16vrt"
+
+
+pushoverr::pushover(message = "Exponential model 2 finished running", 
+                    user = pushoverUserKey,
+                    app = pushoverAPIKey)
 
 ### (1) Preprocess data -----------------------------------------------
 
@@ -430,18 +433,186 @@ ppc_plot$indiv_plot
 
 dev.off()
 
-### (6) Individual parameter estimation -----------------------------------------------
+### (6) Plotting mean model parameters -----------------------------------------------
 
-### Parabolic model 3
+m3_para_params
 
-m3_para_params <- get_params(subj_id = unique(task_data$subjID), 
-                             model_fit = m3_para_fit, 
-                             n_subj = length(unique(task_data$subjID)), 
-                             n_params = 3, 
-                             param_names = c("kE", "kR", "a"))
+color_pal <- c("#E94D36", "#5B9BD5", "#71AB48", "#FDC219", "#8456B8", "#FF7236", "#1FD5B3", "#F781BE")
 
-# save parameter estimates
-saveRDS(m3_para_params, here::here("data/model_fits/main_study/m3_para_parameter.RDS"))
+kE_group_mean <- m3_para_params$group_params %>% filter(parameter == "mu_kE") %>% .$estimate
+kE_indiv_mean <- m3_para_params$individual_params %>% filter(parameter == "kE") %>% .$estimate
+
+kR_group_mean <- m3_para_params$group_params %>% filter(parameter == "mu_kR") %>% .$estimate
+kR_indiv_mean <- m3_para_params$individual_params %>% filter(parameter == "kR") %>% .$estimate
+
+a_group_mean <- m3_para_params$group_params %>% filter(parameter == "mu_a") %>% .$estimate
+a_indiv_mean <- m3_para_params$individual_params %>% filter(parameter == "a") %>% .$estimate
+
+
+### By Effort ---- 
+
+effort_a <- standardization(1:4)
+amount_a <- effort_a[3]
+
+# individual subjects
+SV_para <- data.frame("subj_id" = rep(1:958, each = 8),
+                      "Effort" = rep(rep(effort_a, 2), 958), 
+                      "Reward" = rep(rep(amount_a, 8), 958), 
+                      "effort_sensitivity" = rep(kE_indiv_mean, each = 8),
+                      "reward_sensitivity" = rep(kR_indiv_mean, each = 8),
+                      "SV" = rep(rep(NA, 8), 958))
+
+for(i in 1:7664){
+  SV_para[i, "SV"] <- (SV_para[i, "reward_sensitivity"] * SV_para[i, "Reward"]) - 
+    (SV_para[i, "effort_sensitivity"] * SV_para[i, "Effort"]^2) 
+}
+
+SV_para %<>% 
+  mutate_at(vars(Effort, Reward, effort_sensitivity), factor)
+
+# group level 
+SV_group_para <- data.frame("subj_id" = rep(0, 8),
+                            "Effort" = rep(rep(effort_a, 2), 1), 
+                            "Reward" = rep(rep(amount_a, 8), 1), 
+                            "effort_sensitivity" = rep(kE_group_mean, each = 8),
+                            "reward_sensitivity" = rep(kR_group_mean, each = 8),
+                            "SV" = rep(rep(NA, 8), 1))
+
+for(i in 1:8){
+  SV_group_para[i, "SV"] <- (SV_group_para[i, "reward_sensitivity"] * SV_group_para[i, "Reward"]) - 
+    (SV_group_para[i, "effort_sensitivity"] * SV_group_para[i, "Effort"]^2) 
+}
+
+SV_group_para %<>% 
+  mutate_at(vars(Effort, Reward, effort_sensitivity), factor)
+
+# Plot by Effort
+
+kE_para_plot <- ggplot(SV_para, aes(x = Effort, y = SV, group = subj_id)) +
+  geom_line(alpha = 0.1, size = 1, colour = color_pal[4]) +
+  geom_point(alpha = 0.1, size = 1, colour = color_pal[4]) +
+  ylab("Subjective Value") + 
+  ggtitle("Effort sensitivity") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 18),
+        axis.title = element_text(size = 15),
+        axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 13),
+        legend.title = element_text(size =15),
+        legend.text = element_text(size = 13)) +
+  #ylim(c(-5, 15)) +
+  scale_x_discrete(labels = 1:4)
+
+kE_para_plot +
+  geom_line(data = SV_group_para, aes(x = Effort, y = SV), 
+            size = 2, colour = color_pal[2]) +
+  geom_point(data = SV_group_para, aes(x = Effort, y = SV), 
+             size = 3, colour = color_pal[2]) 
+  
+### By Reward ---- 
+
+amount_a <- standardization(1:4)
+effort_a <- amount_a[3]
+
+# individual subjects
+SV_para <- data.frame("subj_id" = rep(1:958, each = 8),
+                      "Effort" = rep(rep(effort_a, 8), 958), 
+                      "Reward" = rep(rep(amount_a, 2), 958), 
+                      "effort_sensitivity" = rep(kE_indiv_mean, each = 8),
+                      "reward_sensitivity" = rep(kR_indiv_mean, each = 8),
+                      "SV" = rep(rep(NA, 8), 958))
+
+for(i in 1:7664){
+  SV_para[i, "SV"] <- (SV_para[i, "reward_sensitivity"] * SV_para[i, "Reward"]) - 
+    (SV_para[i, "effort_sensitivity"] * SV_para[i, "Effort"]^2) 
+}
+
+SV_para %<>% 
+  mutate_at(vars(Effort, Reward, effort_sensitivity), factor)
+
+# group level 
+SV_group_para <- data.frame("subj_id" = rep(0, 8),
+                            "Effort" = rep(rep(effort_a, 8), 1), 
+                            "Reward" = rep(rep(amount_a, 2), 1), 
+                            "effort_sensitivity" = rep(kE_group_mean, each = 8),
+                            "reward_sensitivity" = rep(kR_group_mean, each = 8),
+                            "SV" = rep(rep(NA, 8), 1))
+
+for(i in 1:8){
+  SV_group_para[i, "SV"] <- (SV_group_para[i, "reward_sensitivity"] * SV_group_para[i, "Reward"]) - 
+    (SV_group_para[i, "effort_sensitivity"] * SV_group_para[i, "Effort"]^2) 
+}
+
+SV_group_para %<>% 
+  mutate_at(vars(Effort, Reward, effort_sensitivity), factor)
+
+kR_para_plot <- ggplot(SV_para, aes(x = Reward, y = SV, group = subj_id)) +
+  geom_line(alpha = 0.1, size = 1, colour = color_pal[4]) +
+  geom_point(alpha = 0.1, size = 1, colour = color_pal[4]) +
+  ylab("Subjective Value") + 
+  ggtitle("Reward sensitivity") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 18),
+        axis.title = element_text(size = 15),
+        axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 13),
+        legend.title = element_text(size =15),
+        legend.text = element_text(size = 13)) +
+  #ylim(c(-5, 15)) +
+  scale_x_discrete(labels = 1:4)
+
+kR_para_plot +
+  geom_line(data = SV_group_para, aes(x = Reward, y = SV), 
+            size = 2, colour = color_pal[2]) +
+  geom_point(data = SV_group_para, aes(x = Reward, y = SV), 
+             size = 3, colour = color_pal[2]) 
+
+
+# Soft max / motivational tendency
+
+# individual level
+alpha <- a_indiv_mean
+SV <- seq(-10, 10, 0.5)
+softmax <- data.frame("SV" = rep(SV, 958), 
+                      "choice_bias" = as.factor(rep(alpha,each = length(SV))),
+                      "prob_accept" = rep(NA, length(SV)*958))
+
+for(a in seq_along(alpha)){
+  for(i in seq_along(SV)){
+    softmax[softmax$choice_bias == alpha[a],][i,]$prob_accept <- 1 / (1 + exp(-1*((alpha[a]) + SV[i])))
+  } 
+}
+
+# group level
+alpha <- a_group_mean
+SV <- seq(-10, 10, 0.5)
+softmax_group <- data.frame("SV" = rep(SV, 1), 
+                      "choice_bias" = as.factor(rep(alpha,each = length(SV))),
+                      "prob_accept" = rep(NA, length(SV)*1))
+
+for(a in seq_along(alpha)){
+  for(i in seq_along(SV)){
+    softmax_group[softmax_group$choice_bias == alpha[a],][i,]$prob_accept <- 1 / (1 + exp(-1*((alpha[a]) + SV[i])))
+  } 
+}
+
+softmax_plot <- ggplot(softmax, aes(x = SV, y = prob_accept, group = choice_bias)) +
+  geom_line(alpha = 0.1, size = 1, colour = color_pal[4]) +
+  ylab("p(accept)") + 
+  xlab("Subjective value") +
+  ggtitle("Motivational tendency") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 18),
+        axis.title = element_text(size = 15),
+        axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 13),
+        legend.title = element_text(size =15),
+        legend.text = element_text(size = 13)) +
+  scale_color_manual(values = color_pal[1:4], name = "Motivational tendency", labels = c("low", "medium", "high")) 
+
+softmax_plot +
+  geom_line(data = softmax_group, aes(x = SV, y = prob_accept), 
+            size = 2, colour = color_pal[2])
 
 
 

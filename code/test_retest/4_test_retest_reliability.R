@@ -113,7 +113,7 @@ cor.test(m3_para_all_params$a_s1, m3_para_all_params$a_s2, method = "pearson")
 # plot
 icc_a_plot <- ggplot(m3_para_all_params, aes(x=a_s1, y=a_s2)) + 
   geom_point(colour = color_pal[3], size = 0.75) + 
-  labs(title = "Choice bias",
+  labs(title = "Motivational tendency",
        x = "Session 1", y = "Session 2") +
   theme(legend.position = "none", 
         plot.title = element_text(size = 10),

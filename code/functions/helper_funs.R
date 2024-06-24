@@ -14,7 +14,7 @@ sdP <- function(x){
 ## Standard error --------------------------------------------------------------
 # @ x: A numerical vector of values
 
-se <- function(x) sqrt(var(x) / length(x))
+se <- function(x) var(x) / sqrt(length(x))
 
 ## Mode ------------------------------------------------------------------------
 # @ x: A numerical vector of values

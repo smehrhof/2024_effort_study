@@ -12,7 +12,7 @@
 # (6) Plotting
 
 # Set working directory
-here::i_am("github/effort-study/code/analyses/6_mdd_hc_comparison.R")
+here::i_am("github/effort-study/code/analyses/5_mdd_hc_comparison.R")
 setwd(here::here())
 
 # source functions
@@ -46,6 +46,14 @@ plotting <- TRUE
 mdd_subj = main_data$questionnaire %>% filter(mdd_current == 1) %>% .$subj_id
 hc_subj = main_data$questionnaire %>% filter(mdd_current == 0, mdd_past == 0) %>% .$subj_id
 
+
+main_data$game_meta %<>% 
+  mutate(testing_group = case_when(update(start_time, year=2000, month=1, mday=1) >= ymd_hms("2000-01-01 08:00:00") & 
+                                     update(start_time, year=2000, month=1, mday=1) <= ymd_hms("2000-01-01 11:59:59") ~ "am",
+                                   update(start_time, year=2000, month=1, mday=1) >= ymd_hms("2000-01-01 18:00:00") & 
+                                     update(start_time, year=2000, month=1, mday=1) <= ymd_hms("2000-01-01 21:59:59") ~ "pm", 
+                                   .default = "none"))
+
 mdd_hc_data <- main_data$demographics %>% 
   left_join(main_data$questionnaire %>% 
               mutate("mdd_hc_group" = case_when(mdd_current == 1 ~ "mdd", 
@@ -54,7 +62,8 @@ mdd_hc_data <- main_data$demographics %>%
   select(subj_id, age, gender, shaps_sumScore, dars_sumScore, dars_food_drink_sumScore, 
          dars_hobbies_sumScore, dars_social_sumScore, dars_sensory_sumScore, 
          aes_sumScore, meq_sumScore, mctq_MSF_SC, bmi_result, findrisc_sumScore,
-         mdd_current, mdd_past, mdd_recurrent, mdd_hc_group) 
+         mdd_current, mdd_past, mdd_recurrent, mdd_hc_group) %>% 
+  left_join(main_data$game_meta %>% select(subj_id, testing_group), by = "subj_id")
 
 # Sub-sample sizes
 mdd_hc_data %>% 
@@ -120,13 +129,13 @@ anova(lme(mean_choice ~ effort_a * amount_a, random= ~1|subjID,
 
 ### (4) Fit models  -----------------------------------------------
 
-# Load models
-m2_parabolic_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_parabolic/ed_m2_parabolic.stan")
-m3_parabolic_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_parabolic/ed_m3_parabolic.stan")
-m3_linear_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_linear/ed_m3_linear.stan")
-
 ### MDD group
 if(model_fitting){
+  
+  # Load models
+  m2_parabolic_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_parabolic/ed_m2_parabolic.stan")
+  m3_parabolic_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_parabolic/ed_m3_parabolic.stan")
+  m3_linear_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_linear/ed_m3_linear.stan")
   
   model_dat_mdd <- model_preprocessing(raw_data = task_mdd,
                                        retest = FALSE,
@@ -424,12 +433,12 @@ if(plotting){
   
   # Plot choice bias
   a_mdd_hc_plot <- raincloud_plot(dat = mdd_hc_matched_data, title = "", 
-                                   xlab = " ", ylab = "Choice bias", 
+                                   xlab = " ", ylab = "Motivational tendency", 
                                    predictor_var = "mdd_hc_group", outcome_var = "estimate_a_scaled", 
                                    predictor_tick_lab = c("HC", "MDD"), col = c(color_pal[4], color_pal[5]), 
                                    include_grouping = FALSE, direction = "horizontal", scale_seq = c(-0, 1,0.25)) + 
     theme(legend.position = "none") +
-    ggtitle("Choice bias")
+    ggtitle("Motivational tendency")
   
   
   pdf(file = here::here("output/figures/R_plots/mdd_hc_plot.pdf"),  

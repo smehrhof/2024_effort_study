@@ -9,7 +9,7 @@
 # (4) Plotting
 
 # Set working directory
-here::i_am("github/effort-study/code/analyses/5_main_analyses.R")
+here::i_am("github/effort-study/code/analyses/4_main_analyses.R")
 setwd(here::here())
 
 # source functions
@@ -117,8 +117,6 @@ kE_pls_model <- plsr(estimate_kE ~ shaps_sumScore + dars_sumScore + aes_sumScore
                      mctq_MSF_SC + bmi_result + findrisc_sumScore, data = kE_x_train, validation = "CV")
 summary(kE_pls_model)
 validationplot(kE_pls_model)
-
-
 
 ### Reward sensitivity
 set.seed(3)
@@ -338,7 +336,7 @@ if(plotting){
     scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
     scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
                        labels = c("low\nanhedonia", "high\nanhedonia")) +
-    labs(y = "Choice bias") +
+    labs(y = "Motivational tendency") +
     theme(plot.title = element_text(size = 10),
           axis.title = element_text(size = 10),
           axis.title.y = element_text(size = 10),
@@ -355,7 +353,7 @@ if(plotting){
     scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
     scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
                        labels = c("low\nanhedonia", "high\nanhedonia")) +
-    labs(y = "Choice bias") +
+    labs(y = "Motivational tendency") +
     theme(plot.title = element_text(size = 10),
           axis.title = element_text(size = 10),
           axis.title.y = element_text(size = 10),
@@ -371,8 +369,8 @@ if(plotting){
     geom_smooth(method = glm, color = color_pal[2], fill = color_pal[2]) +
     scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
     scale_x_continuous(breaks = c(0.13, 0.87), limits = c(0, 1), 
-                       labels = c("low\nanhedonia", "high\nanhedonia")) +
-    labs(y = "Choice bias") +
+                       labels = c("low\napathy", "high\napathy")) +
+    labs(y = "Motivational tendency") +
     theme(plot.title = element_text(size = 10),
           axis.title = element_text(size = 10),
           axis.title.y = element_text(size = 10),
