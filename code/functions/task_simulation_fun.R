@@ -13,7 +13,8 @@ task_simulation <- function(n = 1,
                             model = "m3_parabolic",
                             kE = 1,
                             kR = 1, 
-                            alpha = 0){
+                            alpha = 0, 
+                            beta = 1){
   
   simulated_task <- data.frame()
 
@@ -22,20 +23,40 @@ task_simulation <- function(n = 1,
                                       "model" = rep(model, n),
                                       "kE" = kE, 
                                       "kR" = kR, 
-                                      "a" = alpha)
+                                      "a" = alpha,
+                                      "b" = beta)
   
-  if(grepl("m1", model)){
-    kR <- rep(1, n)
-  }
-  if(grepl("m2", model)){
+  if(grepl("invtemp", model)){
     
-    if(grepl("exponential", model)){
-      alpha <- rep(-0.5, n)  
-    } else {
-      alpha <- rep(0, n)  
+    if(grepl("m1", model)){
+      kR <- rep(1, n)
+      alpha <- rep(0, n)
     }
+    if(grepl("m2", model)){
+      alpha <- rep(0, n)
+    }
+    if(grepl("m3", model)){
+      kR <- rep(1, n)
+    }
+
+    
+  } else {
+    
+    beta <- 1
+    
+    if(grepl("m1", model)){
+      kR <- rep(1, n)
+    }
+    if(grepl("m2", model)){
+      if(grepl("exponential", model)){
+        alpha <- rep(-0.5, n)  
+      } else {
+        alpha <- rep(0, n)  
+      }
+    } 
     
   }
+  
   
   effort_levels <- reward_levels <- standardization(1:4)
   
@@ -83,7 +104,7 @@ task_simulation <- function(n = 1,
         S_R <- kR[subj] * agent_dat[t, "amount_a"]
         SV <- S_R - S_E
       # Choice probability
-        prob_A <- 1 / (1 + exp(-1*((alpha[subj]) + SV)))
+        prob_A <- 1 / (1 + exp(-beta[subj]*((alpha[subj]) + SV)))
         
       ## Exponential
       # Compute subjective value

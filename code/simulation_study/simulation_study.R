@@ -7,6 +7,7 @@
 # (2) Model fitting
 # (3) Parameter recovery metric
 # (4) Plotting
+# (5) Model including inverse temperature
 
 # Set working directory
 here::i_am("github/effort-study/code/simulation_study/simulation_study.R")
@@ -32,6 +33,7 @@ fit_models <- FALSE
 
 # pushoverr
 pushoverUserKey <- "uw5u2amicxd317vuitzqn88z8xfxfa"
+
 pushoverAPIKey <- "asp86ee11jemqhir5i1dau5cf16vrt"
 
 
@@ -725,5 +727,209 @@ fig_S1
 dev.off()
 
 
+
+
+
+### (5) Modelling with the inverse temperature -----------------------------------------------
+
+# Model 1: effort sensitivity, & inverse temperature
+m1_invtemp_sim <- task_simulation(n = 500, model = "m1_parabolic_invtemp",
+                                  kE = runif(500, 0, 1),
+                                  beta = runif(500, 0, 10))
+task_plot(m1_invtemp_sim$simulated_task)
+
+# Preprocess data
+m1_invtemp_sim_dat <- model_preprocessing(raw_data = m1_invtemp_sim$simulated_task, 
+                                          retest = FALSE,
+                                          subjs = unique(m1_invtemp_sim$simulated_task$subjID), 
+                                          n_subj = length(unique(m1_invtemp_sim$simulated_task$subjID)), 
+                                          t_subjs = aggregate(trial ~ subjID, FUN = max, data = m1_invtemp_sim$simulated_task)[,2], 
+                                          t_max = max(aggregate(trial ~ subjID, FUN = max, data = m1_invtemp_sim$simulated_task)[,2]))
+
+m1_invtemp_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_inverse_temp/ed_m1_invtemp.stan")
+
+m1_invtemp_sim_fit <- m1_invtemp_stan_model$sample(
+  data = m1_invtemp_sim_dat, 
+  refresh = 0, chains = 4, parallel_chains = 4, 
+  iter_warmup = 2000, iter_sampling = 6000, 
+  adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
+  output_dir = NULL
+)
+# Convergence check
+m1_invtemp_sim_check <- convergence_check(m1_invtemp_sim_fit, 
+                                       params = c("kE",  "b"), 
+                                       Rhat = TRUE, ess = TRUE,
+                                       trace_plot = TRUE, rank_hist = FALSE)
+m1_invtemp_sim_check$trace_plot 
+
+# LOO for model comparisons
+m1_invtemp_sim_loo <- m1_invtemp_sim_fit$loo()
+
+# Parameter estimates
+m1_invtemp_sim_params <- get_params(subj_id = unique(m1_invtemp_sim$simulated_task$subjID), 
+                                 model_fit = m1_invtemp_sim_fit, 
+                                 n_subj = length(unique(m1_invtemp_sim$simulated_task$subjID)), 
+                                 n_params = 2, 
+                                 param_names = c("kE",  "b"))
+
+cor_dat <- data.frame("underlying_kE" = m1_invtemp_sim$simulation_parameters$kE, 
+                      "underlying_b" = m1_invtemp_sim$simulation_parameters$b, 
+                      "recov_kE" =  m1_invtemp_sim_params$individual_params %>% filter(parameter == "kE") %>% .$estimate,
+                      "recov_b" =  m1_invtemp_sim_params$individual_params %>% filter(parameter == "b") %>% .$estimate)
+
+cor_dat %>% cor()
+
+# Model 2: effort sensitivity, reward sensitivity, & inverse temperature
+m2_invtemp_sim <- task_simulation(n = 50, model = "m2_parabolic_invtemp",
+                                  kE = runif(500, 0, 1),
+                                  kR = runif(100, 0, 6),
+                                  beta = runif(500, 0, 10))
+task_plot(m2_invtemp_sim$simulated_task)
+
+# Preprocess data
+m2_invtemp_sim_dat <- model_preprocessing(raw_data = m2_invtemp_sim$simulated_task, 
+                                          retest = FALSE,
+                                          subjs = unique(m2_invtemp_sim$simulated_task$subjID), 
+                                          n_subj = length(unique(m2_invtemp_sim$simulated_task$subjID)), 
+                                          t_subjs = aggregate(trial ~ subjID, FUN = max, data = m2_invtemp_sim$simulated_task)[,2], 
+                                          t_max = max(aggregate(trial ~ subjID, FUN = max, data = m2_invtemp_sim$simulated_task)[,2]))
+
+m2_invtemp_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_inverse_temp/ed_m2_invtemp.stan")
+
+m2_invtemp_sim_fit <- m2_invtemp_stan_model$sample(
+  data = m2_invtemp_sim_dat, 
+  refresh = 0, chains = 4, parallel_chains = 4, 
+  iter_warmup = 200, iter_sampling = 600, 
+  adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
+  output_dir = NULL
+)
+# Convergence check
+m2_invtemp_sim_check <- convergence_check(m2_invtemp_sim_fit, 
+                                          params = c("kE", "kR", "b"), 
+                                          Rhat = TRUE, ess = TRUE,
+                                          trace_plot = TRUE, rank_hist = FALSE)
+m2_invtemp_sim_check$trace_plot 
+
+# LOO for model comparisons
+m2_invtemp_sim_loo <- m2_invtemp_sim_fit$loo()
+
+# Parameter estimates
+m2_invtemp_sim_params <- get_params(subj_id = unique(m2_invtemp_sim$simulated_task$subjID), 
+                                    model_fit = m2_invtemp_sim_fit, 
+                                    n_subj = length(unique(m2_invtemp_sim$simulated_task$subjID)), 
+                                    n_params = 3, 
+                                    param_names = c("kE", "kR", "b"))
+
+cor_dat <- data.frame("underlying_kE" = m2_invtemp_sim$simulation_parameters$kE, 
+                      "underlying_kR" = m2_invtemp_sim$simulation_parameters$kR, 
+                      "underlying_b" = m2_invtemp_sim$simulation_parameters$b, 
+                      "recov_kE" =  m2_invtemp_sim_params$individual_params %>% filter(parameter == "kE") %>% .$estimate,
+                      "recov_kR" =  m2_invtemp_sim_params$individual_params %>% filter(parameter == "kR") %>% .$estimate,
+                      "recov_b" =  m2_invtemp_sim_params$individual_params %>% filter(parameter == "b") %>% .$estimate)
+
+cor_dat %>% cor()
+
+# Model 3: effort sensitivity, choice bias, & inverse temperature
+m3_invtemp_sim <- task_simulation(n = 50, model = "m3_parabolic_invtemp",
+                                  kE = runif(500, 0, 1),
+                                  alpha = runif(100, -7, 7),
+                                  beta = runif(500, 0, 10))
+task_plot(m3_invtemp_sim$simulated_task)
+
+# Preprocess data
+m3_invtemp_sim_dat <- model_preprocessing(raw_data = m3_invtemp_sim$simulated_task, 
+                                          retest = FALSE,
+                                          subjs = unique(m3_invtemp_sim$simulated_task$subjID), 
+                                          n_subj = length(unique(m3_invtemp_sim$simulated_task$subjID)), 
+                                          t_subjs = aggregate(trial ~ subjID, FUN = max, data = m3_invtemp_sim$simulated_task)[,2], 
+                                          t_max = max(aggregate(trial ~ subjID, FUN = max, data = m3_invtemp_sim$simulated_task)[,2]))
+
+m3_invtemp_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_inverse_temp/ed_m3_invtemp.stan")
+
+m3_invtemp_sim_fit <- m3_invtemp_stan_model$sample(
+  data = m3_invtemp_sim_dat, 
+  refresh = 0, chains = 4, parallel_chains = 4, 
+  iter_warmup = 200, iter_sampling = 600, 
+  adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
+  output_dir = NULL
+)
+# Convergence check
+m3_invtemp_sim_check <- convergence_check(m3_invtemp_sim_fit, 
+                                          params = c("kE", "a",  "b"), 
+                                          Rhat = TRUE, ess = TRUE,
+                                          trace_plot = TRUE, rank_hist = FALSE)
+m3_invtemp_sim_check$trace_plot 
+
+# LOO for model comparisons
+m3_invtemp_sim_loo <- m3_invtemp_sim_fit$loo()
+
+# Parameter estimates
+m3_invtemp_sim_params <- get_params(subj_id = unique(m3_invtemp_sim$simulated_task$subjID), 
+                                    model_fit = m3_invtemp_sim_fit, 
+                                    n_subj = length(unique(m3_invtemp_sim$simulated_task$subjID)), 
+                                    n_params = 3, 
+                                    param_names = c("kE", "a",  "b"))
+
+cor_dat <- data.frame("underlying_kE" = m3_invtemp_sim$simulation_parameters$kE,
+                      "underlying_a" = m3_invtemp_sim$simulation_parameters$a, 
+                      "underlying_b" = m3_invtemp_sim$simulation_parameters$b, 
+                      "recov_kE" =  m3_invtemp_sim_params$individual_params %>% filter(parameter == "kE") %>% .$estimate,
+                      "recov_a" =  m3_invtemp_sim_params$individual_params %>% filter(parameter == "a") %>% .$estimate,
+                      "recov_b" =  m3_invtemp_sim_params$individual_params %>% filter(parameter == "b") %>% .$estimate)
+
+cor_dat %>% cor()
+
+# Model 4: effort sensitivity, reward sensitivity, choice bias, & inverse temperature
+m4_invtemp_sim <- task_simulation(n = 50, model = "m4_parabolic_invtemp",
+                                  kE = runif(500, 0, 1),
+                                  kR = runif(100, 0, 6),
+                                  alpha = runif(100, -7, 7),
+                                  beta = runif(500, 0, 10))
+task_plot(m4_invtemp_sim$simulated_task)
+
+# Preprocess data
+m4_invtemp_sim_dat <- model_preprocessing(raw_data = m4_invtemp_sim$simulated_task, 
+                                          retest = FALSE,
+                                          subjs = unique(m4_invtemp_sim$simulated_task$subjID), 
+                                          n_subj = length(unique(m4_invtemp_sim$simulated_task$subjID)), 
+                                          t_subjs = aggregate(trial ~ subjID, FUN = max, data = m4_invtemp_sim$simulated_task)[,2], 
+                                          t_max = max(aggregate(trial ~ subjID, FUN = max, data = m4_invtemp_sim$simulated_task)[,2]))
+
+m4_invtemp_stan_model <- cmdstanr::cmdstan_model("github/effort-study/code/stan/models_inverse_temp/ed_m4_invtemp.stan")
+
+m4_invtemp_sim_fit <- m4_invtemp_stan_model$sample(
+  data = m4_invtemp_sim_dat, 
+  refresh = 0, chains = 4, parallel_chains = 4, 
+  iter_warmup = 200, iter_sampling = 600, 
+  adapt_delta = 0.8, step_size = 1, max_treedepth = 10, save_warmup = TRUE, 
+  output_dir = NULL
+)
+# Convergence check
+m4_invtemp_sim_check <- convergence_check(m4_invtemp_sim_fit, 
+                                          params = c("kE", "kR", "a", "b"), 
+                                          Rhat = TRUE, ess = TRUE,
+                                          trace_plot = TRUE, rank_hist = FALSE)
+m4_invtemp_sim_check$trace_plot 
+
+# LOO for model comparisons
+m4_invtemp_sim_loo <- m4_invtemp_sim_fit$loo()
+
+# Parameter estimates
+m4_invtemp_sim_params <- get_params(subj_id = unique(m4_invtemp_sim$simulated_task$subjID), 
+                                    model_fit = m4_invtemp_sim_fit, 
+                                    n_subj = length(unique(m4_invtemp_sim$simulated_task$subjID)), 
+                                    n_params = 4, 
+                                    param_names = c("kE", "kR", "a", "b"))
+
+cor_dat <- data.frame("underlying_kE" = m4_invtemp_sim$simulation_parameters$kE, 
+                      "underlying_kR" = m4_invtemp_sim$simulation_parameters$kR, 
+                      "underlying_a" = m4_invtemp_sim$simulation_parameters$a, 
+                      "underlying_b" = m4_invtemp_sim$simulation_parameters$b, 
+                      "recov_kE" =  m4_invtemp_sim_params$individual_params %>% filter(parameter == "kE") %>% .$estimate,
+                      "recov_kR" =  m4_invtemp_sim_params$individual_params %>% filter(parameter == "kR") %>% .$estimate,
+                      "recov_a" =  m4_invtemp_sim_params$individual_params %>% filter(parameter == "a") %>% .$estimate,
+                      "recov_b" =  m4_invtemp_sim_params$individual_params %>% filter(parameter == "b") %>% .$estimate)
+
+cor_dat %>% cor()
 
 
